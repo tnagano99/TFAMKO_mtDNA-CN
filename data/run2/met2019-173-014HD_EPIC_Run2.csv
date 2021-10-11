@@ -1,0 +1,16 @@
+[Header],,,,,,,,
+Investigator Name,,,,,,,,
+Project Name,,,,,,,,
+Experiment Name,,,,,,,,
+Date,12/9/19,,,,,,,
+,,,,,,,,
+[Data],,,,,,,,
+Sample_Name,Sample_Well,Sample_Plate,Sample_Group,Pool_ID,Sentrix_ID,Sentrix_Position,Decode,Group
+ArkingEPIC_Sample-1,A09,0,MET2019-173-014,,203751390048,R01C01,TFAM_KO_Clone_11,Knockout
+ArkingEPIC_Sample-2,B09,0,MET2019-173-014,,203751390048,R02C01,HEK293T_NC-1,Normal
+ArkingEPIC_Sample-3,C09,0,MET2019-173-014,,203751390048,R03C01,Chem-NC,Chem
+ArkingEPIC_Sample-4,D09,0,MET2019-173-014,,203751390048,R04C01,TFAM_KO_Clone_5,Knockout
+ArkingEPIC_Sample-5,E09,0,MET2019-173-014,,203751390048,R05C01,HEK293T_NC-2,Normal
+ArkingEPIC_Sample-6,F09,0,MET2019-173-014,,203751390048,R06C01,TFAM_KO_Clone_6,Knockout
+ArkingEPIC_Sample-7,G09,0,MET2019-173-014,,203751390048,R07C01,Chem-Ace5,Chem
+ArkingEPIC_Sample-8,H09,0,MET2019-173-014,,203751390048,R08C01,HEK293T_NC-3,Normal
