@@ -9,6 +9,7 @@ library(data.table)
 library(dplyr)
 library(minfi)
 library(RColorBrewer)
+library(limma)
 
 # Update baseDir to proper location
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
@@ -94,8 +95,12 @@ mSetSqFltRun2 <- mSetSqFltRun2[pidsRun2,]
 
 # remove probes affected by SNPs keep default 0 for maf because there should be no genetic variation in cell culture
 # should Single-base-pair extension (SBE) SNPs be removed? look into
+# mSetSqFltRun1: Before: 808234 After: 780974
+# mSetSqFltRun2: Before: 820030 After: 792231
 mSetSqFltRun1 <- dropLociWithSnps(mSetSqFltRun1)
 mSetSqFltRun2 <- dropLociWithSnps(mSetSqFltRun2)
+
+############### Now that the data is cleaned separately; how to compare and combine data?
 
 # output MDS plot of the methylation data to results for Run 1
 # shows PC 1 separates the Control and KO lines nicely
@@ -122,15 +127,53 @@ dev.off()
 # distribution for m values, but not for beta values
 betaRun1 <- as.data.frame(getBeta(mSetSqFltRun1))
 betaRun2 <- as.data.frame(getBeta(mSetSqFltRun2))
+mValRun1 <- as.data.frame(getM(mSetSqFltRun1))
+mValRun2 <- as.data.frame(getM(mSetSqFltRun2))
 
 # rename betaRun1 columns with Sample_names
 for(i in 1:6){
         old_col <- paste(targetsRun1$Slide[i], targetsRun1$Array[i], sep="_")
         names(betaRun1)[names(betaRun1) == old_col] <- targetsRun1$Sample_Name[i]
+        names(mValRun1)[names(mValRun1) == old_col] <- targetsRun1$Sample_Name[i]
 }
 
 # rename betaRun2 columns with decode
 for(i in 1:6){
         old_col <- paste(targetsRun2$Slide[i], targetsRun2$Array[i], sep="_")
         names(betaRun2)[names(betaRun2) == old_col] <- targetsRun2$Decode[i]
+        names(mValRun2)[names(mValRun2) == old_col] <- targetsRun2$Decode[i]
 }
+
+############ get differentially methylated regions using linear model in limma
+# Get knockout and normal groups
+TFAM_KO_Run1 <- factor(targetsRun1$Group)
+TFAM_KO_Run2 <- factor(targetsRun2$Group)
+
+# create design matrix differentiating samples by KO or Normal
+designRun1 <- model.matrix(~0+TFAM_KO_Run1, data=targetsRun1)
+designRun2 <- model.matrix(~0+TFAM_KO_Run2, data=targetsRun2)
+
+# use design matrix to fit m values 
+fitRun1 <- lmFit(mValRun1, designRun1)
+fitRun2 <- lmFit(mValRun2, designRun2)
+
+# create contrast matrix to compare the differential methylation
+contMatrixRun1 <- makeContrasts(TFAM_KO_Run1Knockout - TFAM_KO_Run1Normal, TFAM_KO_Run1Normal - TFAM_KO_Run1Knockout, levels=designRun1)
+contMatrixRun2 <- makeContrasts(TFAM_KO_Run2Knockout - TFAM_KO_Run2Normal, TFAM_KO_Run2Normal - TFAM_KO_Run2Knockout, levels=designRun2)
+
+# fit the contrast matrix to get CpGs with significant differential methylation
+fitRun1_2 <- contrasts.fit(fitRun1, contMatrixRun1)
+fitRun2_2 <- contrasts.fit(fitRun2, contMatrixRun2)
+
+# not needed below?
+fitRun1_2 <- eBayes(fitRun1_2)
+fitRun2_2 <- eBayes(fitRun2_2)
+
+############ find differentially methylated probes using dmpFinder
+# get m values
+mValRun1 <- getM(mSetSqFltRun1)
+mValRun2 <- getM(mSetSqFltRun2)
+
+# look more into dmpFinder to figure out best options
+dmpRun1 <- dmpFinder(mValRun1, pheno=targetsRun1$Group, type="continuous")
+dmpRun2 <- dmpFinder(mValRun2, pheno=targetsRun2$Group, type="continuous")
