@@ -1,3 +1,5 @@
+# if need to install packages
+
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
@@ -6,10 +8,12 @@ BiocManager::install("minfi")
 library(data.table)
 library(dplyr)
 library(minfi)
-library(missMethyl)
+library(RColorBrewer)
+
+# Update baseDir to proper location
+baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 
 # set working directory to be folder containing root
-baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 setwd(baseDir)
 baseDirRun1 <- paste(baseDir, "/data/run1", sep="")
 baseDirRun2 <- paste(baseDir, "/data/run2", sep="")
@@ -26,41 +30,107 @@ rgSetRun1 <- read.metharray.exp(targets = targetsRun1)
 rgSetRun2 <- read.metharray.exp(targets = targetsRun2)
 
 # calculate the detection p-values for each CpG in the sample
-# relook at this tonight
+# used later for removing poor performing probes
 detPRun1 <- detectionP(rgSetRun1)
 detPRun2 <- detectionP(rgSetRun2)
-
-# remove samples from runs with detection p-value less than 0.05
-# no samples above threshold don't need to do this
-keep1 <- colMeans(detPRun1) < 0.05
-keep2 <- colMeans(detPRun2) < 0.05
 
 # output the quality control reports
 # Decode equivalent to Sample_Name and Status equal to Group between runs
 #run1
-qcReport(rgSetRun1, sampNames=targetsRun1$Sample_Name, sampGroup = targetsRun1$Status, pdf="./results/qcreportRun1.pdf")
+qcReport(rgSetRun1, sampNames=targetsRun1$Sample_Name, sampGroup = targetsRun1$Group, pdf="./results/qcreportRun1.pdf")
 #run2
 qcReport(rgSetRun2, sampNames=targetsRun2$Decode, sampGroup = targetsRun2$Group, pdf="./results/qcreportRun2.pdf")
 
 # preprocess using preprocessQuantile
 # fixoutliers quantilnormalize strafitifed
-mSetSqRun1 <- preprocessQuantile(rgSetRun1) 
-mSetSqRun2 <- preprocessQuantile(rgSetRun2)
+mSetSqRun1 <- preprocessQuantile(rgSetRun1, quantileNormalize = TRUE, stratified = TRUE) 
+mSetSqRun2 <- preprocessQuantile(rgSetRun2, quantileNormalize = TRUE, stratified = TRUE)
 
 # visualize Run1 normalization
-pdf("./results/Run1.pdf")
+pdf("./results/Run1_norm.pdf")
 par(mfrow=c(1,2))
 densityPlot(getBeta(mSetSqRun1), sampGroups=targetsRun1$Group, main="Normalized", legend=FALSE)
-legend("top", legend = levels(factor(targetsRun1$Group)))
+legend("top", legend = levels(factor(targetsRun1$Group)), text.col=brewer.pal(8,"Dark2"))
 densityPlot(rgSetRun1, sampGroups=targetsRun1$Group, main="Raw", legend=FALSE)
-legend("top", legend = levels(factor(targetsRun1$Group)))
+legend("top", legend = levels(factor(targetsRun1$Group)), text.col=brewer.pal(8,"Dark2"))
 dev.off()
 
 # visualize Run2 normalization
-pdf("./results/Run2.pdf")
+pdf("./results/Run2_norm.pdf")
 par(mfrow=c(1,2))
 densityPlot(getBeta(mSetSqRun2), sampGroups=targetsRun2$Group, main="Normalized", legend=FALSE)
-legend("top", legend = levels(factor(targetsRun2$Group)))
+legend("top", legend = levels(factor(targetsRun2$Group)), text.col=brewer.pal(8,"Dark2")
 densityPlot(rgSetRun2, sampGroups=targetsRun2$Group, main="Raw", legend=FALSE)
-legend("top", legend = levels(factor(targetsRun2$Group)))
+legend("top", legend = levels(factor(targetsRun2$Group)), text.col=brewer.pal(8,"Dark2"))
 dev.off()
+
+# Filtering out poor performing probes using detection p values for the samples
+# returns a p-value for each probe by comparing methylated and unmethylated signal to negative control based on normal distribution
+# documentation recommends to remove all probes with det p-value < 0.01
+
+# reorder rows in detection p-value to match with the probe names from the methylation data
+detPRun1 <- detPRun1[match(featureNames(mSetSqRun1),rownames(detPRun1)),] 
+detPRun2 <- detPRun2[match(featureNames(mSetSqRun2),rownames(detPRun2)),]
+
+# find all probes that have failed in one or more samples based on p-value < 0.01
+keepRun1 <- rowSums(detPRun1 < 0.01) == ncol(mSetSqRun1) 
+keepRun2 <- rowSums(detPRun2 < 0.01) == ncol(mSetSqRun2) 
+mSetSqFltRun1 <- mSetSqRun1[keepRun1,]
+mSetSqFltRun2 <- mSetSqRun2[keepRun2,]
+# table(keepRun1) # 15078 probes removed
+# table(keepRun2) # 2786 probes removed
+
+# remove Pidsley Cross reactive probes Pidsley et al. https://doi.org/10.1186/s13059-016-1066-1
+pidsley_probes <- read.csv(file=paste(baseDir, "data/PidsleyCrossReactiveProbesEPIC.csv", sep="/"), stringsAsFactors=FALSE)
+
+# get probes in runs which are in list of cross-reactive probes
+pidsRun1 <- !(featureNames(mSetSqFltRun1) %in% pidsley_probes$TargetID)
+pidsRun2 <- !(featureNames(mSetSqFltRun2) %in% pidsley_probes$TargetID)
+mSetSqFltRun1 <- mSetSqFltRun1[pidsRun1,]
+mSetSqFltRun2 <- mSetSqFltRun2[pidsRun2,]
+# table(pidsRun1) # 42547 probes removed
+# table(pidsRun2) # 43043 probes removed
+# Dr. Castellani said aroudn 43254 should be removed; some dropped due to below signifance?
+
+# remove probes affected by SNPs keep default 0 for maf because there should be no genetic variation in cell culture
+# should Single-base-pair extension (SBE) SNPs be removed? look into
+mSetSqFltRun1 <- dropLociWithSnps(mSetSqFltRun1)
+mSetSqFltRun2 <- dropLociWithSnps(mSetSqFltRun2)
+
+# output MDS plot of the methylation data to results for Run 1
+# shows PC 1 separates the Control and KO lines nicely
+pdf("./results/Run1_MDS.pdf")
+par(mfrow=c(1,1))
+plotMDS(getM(mSetSqFltRun1), top=1000, gene.selection="common", cex=0.8)
+legend("right", legend=levels(factor(targetsRun1$Group)),
+       cex=0.65, bg="white")
+dev.off()
+
+# output MDS plot of the methylation data to results for Run 2
+# shows PC 1 separates the Control and KO lines nicely
+pdf("./results/Run2_MDS.pdf")
+par(mfrow=c(1,1))
+plotMDS(getM(mSetSqFltRun2), top=1000, gene.selection="common", cex=0.8)
+legend("right", legend=levels(factor(targetsRun2$Group)),
+       cex=0.65, bg="white")
+dev.off()
+
+# need to get out beta or m values
+# should we be using m-values or beta values
+# https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-11-587
+# says m values should be used for statistical analysis because consistent std across
+# distribution for m values, but not for beta values
+betaRun1 <- as.data.frame(getBeta(mSetSqFltRun1))
+betaRun2 <- as.data.frame(getBeta(mSetSqFltRun2))
+
+# rename betaRun1 columns with Sample_names
+for(i in 1:6){
+        old_col <- paste(targetsRun1$Slide[i], targetsRun1$Array[i], sep="_")
+        names(betaRun1)[names(betaRun1) == old_col] <- targetsRun1$Sample_Name[i]
+}
+
+# rename betaRun2 columns with decode
+for(i in 1:6){
+        old_col <- paste(targetsRun2$Slide[i], targetsRun2$Array[i], sep="_")
+        names(betaRun2)[names(betaRun2) == old_col] <- targetsRun2$Decode[i]
+}
