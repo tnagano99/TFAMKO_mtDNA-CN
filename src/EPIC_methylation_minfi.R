@@ -43,7 +43,6 @@ qcReport(rgSetRun1, sampNames=targetsRun1$Sample_Name, sampGroup = targetsRun1$G
 qcReport(rgSetRun2, sampNames=targetsRun2$Decode, sampGroup = targetsRun2$Group, pdf="./results/qcreportRun2.pdf")
 
 # preprocess using preprocessQuantile
-# fixoutliers quantilnormalize strafitifed
 mSetSqRun1 <- preprocessQuantile(rgSetRun1, quantileNormalize = TRUE, stratified = TRUE) 
 mSetSqRun2 <- preprocessQuantile(rgSetRun2, quantileNormalize = TRUE, stratified = TRUE)
 
@@ -94,7 +93,7 @@ mSetSqFltRun2 <- mSetSqFltRun2[pidsRun2,]
 # Dr. Castellani said aroudn 43254 should be removed; some dropped due to below signifance?
 
 # remove probes affected by SNPs keep default 0 for maf because there should be no genetic variation in cell culture
-# should Single-base-pair extension (SBE) SNPs be removed? look into
+# should Single-base-pair extension (SBE) SNPs be removed? no don't do this
 # mSetSqFltRun1: Before: 808234 After: 780974
 # mSetSqFltRun2: Before: 820030 After: 792231
 mSetSqFltRun1 <- dropLociWithSnps(mSetSqFltRun1)
@@ -177,3 +176,4 @@ mValRun2 <- getM(mSetSqFltRun2)
 # look more into dmpFinder to figure out best options
 dmpRun1 <- dmpFinder(mValRun1, pheno=targetsRun1$Group, type="continuous")
 dmpRun2 <- dmpFinder(mValRun2, pheno=targetsRun2$Group, type="continuous")
+
