@@ -45,7 +45,7 @@ mSetSq <- preprocessFunnorm(rgSet, bgCorr = TRUE, dyeCorr = TRUE, keepCN = TRUE,
 pdf("./results/norm.pdf")
 par(mfrow=c(1,2))
 densityPlot(getBeta(mSetSq), sampGroups=targets$Group, main="Normalized", legend=FALSE)
-legend("top", legend = levels(factor(targets$Group)), text.col=brewer.pal(8,"Dark2")
+legend("top", legend = levels(factor(targets$Group)), text.col=brewer.pal(8,"Dark2"))
 densityPlot(rgSet, sampGroups=targets$Group, main="Raw", legend=FALSE)
 legend("top", legend = levels(factor(targets$Group)), text.col=brewer.pal(8,"Dark2"))
 dev.off()
@@ -93,7 +93,8 @@ dev.off()
 # says m values should be used for statistical analysis because consistent std across
 # distribution for m values, but not for beta values
 beta <- as.data.frame(getBeta(mSetSqFlt))
-mVal <- as.data.frame(getM(mSetSqFlt))
+# mVal <- as.data.frame(getM(mSetSqFlt))
+mVal <- getM(mSetSqFlt)
 
 # rename beta columns with decode
 for(i in 1:12){
@@ -115,6 +116,10 @@ beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2"))]
 # drop same rows in mVal for further analysis
 mVal <- mVal[(row.names(mVal) %in% row.names(beta)), ]
 
+# write output files to results
+write.csv(beta, "/project/6061316/tnagano/TFAMKO_mtDNA-CN/results/beta.csv")
+write.csv(mVal, "/project/6061316/tnagano/TFAMKO_mtDNA-CN/results/mVal.csv")
+
 ############ get differentially methylated regions using linear model in limma using m-values
 # Get knockout and normal groups
 TFAM_KO_ <- factor(targets$Group)
@@ -134,9 +139,8 @@ fit_2 <- contrasts.fit(fit, contMatrix)
 # view the amount of signifcant CpGs
 # summary(decideTests(fit_2))
 ############ find differentially methylated probes using dmpFinder
-# get m values
-mVal <- getM(mSetSqFlt)
 
 # look more into dmpFinder to figure out best options
-dmp <- dmpFinder(mVal, pheno=targets$Group, type="continuous")
+dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical")
+write.csv(dmp, "/project/6061316/tnagano/TFAMKO_mtDNA-CN/results/dmp.csv")
 

@@ -17,7 +17,8 @@ baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 setwd(baseDir)
 
 # read in summary stats data
-summaryStats <- as.data.frame(read.csv("/home/tnagano/projects/def-ccastel/tnagano/EPIC/EPIClmerResults_DMP_ContinuousShrink.csv"))
+# summaryStats <- as.data.frame(read.csv("/home/tnagano/projects/def-ccastel/tnagano/EPIC/EPIClmerResults_DMP_ContinuousShrink.csv"))
+summaryStats <- as.data.frame(read.csv("C:/Users/tnaga/Documents/R_Scripts/EPIClmerResults_DMP_ContinuousShrink.csv"))
 
 # read in EPIC array annotation data
 annotate <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
@@ -29,4 +30,7 @@ allCpGs <- rownames(annotate)
 
 # use gometh with prior probabilities to account for bias of CpG sites per gene
 sigGO <- gometh(sig.cpg = sigCpGs, all.cpg = allCpGs, collection = "GO", array.type = "EPIC", plot.bias = TRUE, prior.prob = TRUE, anno = annotate)
+sigGO <- sigGO %>% arrange(P.DE) # sort in order by P value
+
 sigKEGG <- gometh(sig.cpg = sigCpGs, all.cpg = allCpGs, collection = "KEGG", array.type = "EPIC", plot.bias = TRUE, prior.prob = TRUE, anno = annotate)
+sigKEGG <- sigKEGG %>% arrange(P.DE) # sort in order by P value
