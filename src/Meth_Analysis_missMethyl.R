@@ -17,8 +17,10 @@ baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 setwd(baseDir)
 
 # read in summary stats data
+# update summary stats
 # summaryStats <- as.data.frame(read.csv("/home/tnagano/projects/def-ccastel/tnagano/EPIC/EPIClmerResults_DMP_ContinuousShrink.csv"))
-summaryStats <- as.data.frame(read.csv("C:/Users/tnaga/Documents/R_Scripts/EPIClmerResults_DMP_ContinuousShrink.csv"))
+# summaryStats <- as.data.frame(read.csv("C:/Users/tnaga/Documents/R_Scripts/dmp.csv"))
+summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/dmp.csv", sep = "")))
 
 # read in EPIC array annotation data
 annotate <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
