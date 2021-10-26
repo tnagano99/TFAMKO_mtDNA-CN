@@ -139,6 +139,10 @@ rangesDMR <- rangesDMR[(elementMetadata(rangesDMR)[, "no.cpgs"] >= 10)]
 df = as(rangesDMR, "data.frame")
 write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
 
+# to read in rangesDMR
+# df2 = read.table("./results/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
+# gr2 = makeGRangesFromDataFrame(df2, keep.extra.columns=TRUE)
+
 ############### GO/KEGG analysis on DMRs using MissMethyl
 
 DMR_GO <- goregion(subset, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC")
