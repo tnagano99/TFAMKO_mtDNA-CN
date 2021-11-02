@@ -59,7 +59,6 @@ mSetSqFlt <- mSetSqFlt[pids,]
 # table(pids) # 42532 probes removed
 
 # remove probes affected by SNPs keep default 0 for maf because there should be no genetic variation in cell culture
-# should Single-base-pair extension (SBE) SNPs be removed? no don't do this
 # mSetSqFlt: Before: 807862 After: 781118
 mSetSqFlt <- dropLociWithSnps(mSetSqFlt, snps = c("CpG"))
 
@@ -69,11 +68,10 @@ mSetSqFlt <- dropLociWithSnps(mSetSqFlt, snps = c("CpG"))
 # says m values should be used for statistical analysis because consistent std across
 # distribution for m values, but not for beta values
 beta <- as.data.frame(getBeta(mSetSqFlt))
-# mVal <- as.data.frame(getM(mSetSqFlt))
-mVal <- getM(mSetSqFlt)
+mVal <- as.data.frame(getM(mSetSqFlt))
 
 # rename beta columns with decode
-for(i in 1:24){
+for(i in 1:12){
         old_col <- paste(targets$Slide[i], targets$Array[i], sep="_")
         names(beta)[names(beta) == old_col] <- targets$Decode[i]
         names(mVal)[names(mVal) == old_col] <- targets$Decode[i]
@@ -93,47 +91,98 @@ beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2"))]
 mVal <- mVal[(row.names(mVal) %in% row.names(beta)), ]
 
 # write output files to results
-write.csv(beta, "/project/6061316/tnagano/TFAMKO_mtDNA-CN/results/beta.csv")
-write.csv(mVal, "/project/6061316/tnagano/TFAMKO_mtDNA-CN/results/mVal.csv")
+write.csv(beta, paste(baseDir, "/results/beta.csv", sep=""))
+write.csv(mVal, paste(baseDir, "/results/mVal.csv", sep=""))
 
-############ get differentially methylated regions using linear model in limma using m-values
-# Get knockout and normal groups
-TFAM_KO_ <- factor(targets$Group)
+# convert beta and m-values to matrices for further analysis
+beta <- data.matrix(beta)
+mVal <- data.matrix(mVal)
 
-# create design matrix differentiating samples by KO or Normal
-design <- model.matrix(~0+TFAM_KO_, data=targets)
+###################################### find differentially methylated probes using a linear mixed model ##################################
 
-# use design matrix to fit m values 
-fit <- lmFit(mVal, design)
+# code to run a linear model for each probe
+Batch <- targets$Slide # run 1 or run 2 based on slide number
+ID <- substr(targets$Decode, 1, nchar(targets$Decode)-2) # specify the 6 different samples (3 KO 3 NC)
+mtDNACN <- targets$mtDNACN
+EPICTFAMKO <- beta
 
-# create contrast matrix to compare the differential methylation
-contMatrix <- makeContrasts(TFAM_KO_Knockout - TFAM_KO_Normal, TFAM_KO_Normal - TFAM_KO_Knockout, levels=design)
+library(lme4)
+## Define the lm function
+runlme <- function(thisdat) {
+   lme1 <- eval(parse(text=expression));    
+   ##Get the summary of the model
+   smodel = summary(lme1);
+   return(smodel)
+}
 
-# fit the contrast matrix to get CpGs with significant differential methylation
-fit_2 <- contrasts.fit(fit, contMatrix)
+varnames <- c("mtDNACN")
+Bmat <- SEmat <- Tmat <- matrix(NA,nrow=nrow(EPICTFAMKO),ncol=1)
+rownames(Bmat) <- rownames(SEmat) <- rownames(Tmat) <- rownames(EPICTFAMKO)
+colnames(Bmat) <- paste("Estimate",varnames,sep=".")
+colnames(SEmat) <- paste("Std.Error",varnames,sep=".")
+colnames(Tmat) <- paste("t-value",varnames,sep=".")
 
-# view the amount of signifcant CpGs
-# summary(decideTests(fit_2))
+for (i in 1:nrow(EPICTFAMKO)) { 
+	if (i %% 10000 == 0) {
+		cat(paste("On probe ",i,"\n",sep=""))
+	} #outputs every 10000 probes just to check in
 
-############ find differentially methylated probes using dmpFinder
+	thisExpr <- as.numeric(EPICTFAMKO[i,])
+	expression <- "lmer(thisExpr~mtDNACN + (1|Batch)+(1|ID), na.action=na.exclude, control = lmerControl(calc.derivs = FALSE), REML=FALSE)"
 
-# look more into dmpFinder to figure out best options
-dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical")
-write.csv(dmp, "/project/6061316/tnagano/TFAMKO_mtDNA-CN/results/dmp.csv")
+	designmatrix <- data.frame(thisExpr, mtDNACN, Batch, ID)
+	lme1.out <- try(runlme(designmatrix),silent=F);
 
-########### find differentially methylated regions using DMRcate
+	if (substr(lme1.out[1],1,5)!="Error") {
+		tabOut <- lme1.out$coefficients
+		Bmat[i,] <- tabOut[2,"Estimate"]
+		SEmat[i,] <- tabOut[2,"Std. Error"]
+		Tmat[i,] <- tabOut[2,"t value"]
+	} else {
+		cat('Error in LME of Probe',rownames(EPICTFAMKO)[i],"id",'\n')
+		cat('Setting P-value=NA,Beta value=NA, and =NA\n');
+		Bmat[i,] <- SEmat[i,] <- Tmat[i,] <- NA;
+	}
+}
 
-# annotate the m-values to include info on genomic position etc.
-myAnnotation <- cpg.annotate(object = mVal, datatype = "array", what = "M", analysis.type = "differential",
-                             design = design, contrasts = TRUE, cont.matrix = contMatrix, fdr = 0.05,
-                             coef = "TFAM_KO_Knockout - TFAM_KO_Normal", arraytype = "EPIC")
+warnings()
+
+FinalResults <- cbind(Bmat, SEmat, Tmat)
+FinalResults <- as.data.frame(FinalResults)
+zscores <- FinalResults[,3]
+pvalue <- pchisq(zscores**2,1,lower.tail=F)
+min(pvalue)
+FinalResults2 <- cbind(FinalResults,pvalue)
+
+write.csv(FinalResults2, paste(baseDir, "results/Linear_Mixed_Model_lmerResults.csv", sep = "/"), quote=F)
+
+###################################### find differentially methylated probes using dmpFinder #############################################
+
+# Find differentially methylated probes using categories of knockout or not
+dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=TRUE)
+write.csv(dmp, paste(baseDir, "/results/dmp.csv", sep=""))
+
+# Find differentially methylated probes 
+dmp_cont <- dmpFinder(mVal, pheno=targets$mtDNACN, type="continuous", shrinkVar=TRUE)
+write.csv(dmp, paste(baseDir, "/results/dmp.csv", sep=""))
+
+###################################### find differentially methylated regions using DMRcate  #############################################
+
+# Get knockout and normal groups and batches as factors
+Type <- factor(targets$Group) # knockout or normal
+Batch <- factor(targets$Slide) # run 1 or run 2 based on slide number
+ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6 different samples (3 KO 3 NC)
+
+# create design matrix differentiating samples, KO or Normal and batch effects
+design <- model.matrix(~Type+Batch+ID)
+
+# annotate the beta values to include info on genomic position etc.
+# Coefficients not estimable: TFAM_KO_Clone_6
+myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 0.01)
 
 # using the annotation identify the diferentially methylated regions
-DMRs <- dmrcate(myAnnotation, lambda=1000, C=2)
+DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10)
 rangesDMR <- extractRanges(DMRs)
-
-# remove DMRs with regions with less than 10 CpGs
-rangesDMR <- rangesDMR[(elementMetadata(rangesDMR)[, "no.cpgs"] >= 10)]
 
 # export the DMR_ranges to csv file
 df = as(rangesDMR, "data.frame")
@@ -143,16 +192,16 @@ write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.nam
 # df2 = read.table("./results/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
 # gr2 = makeGRangesFromDataFrame(df2, keep.extra.columns=TRUE)
 
-############### GO/KEGG analysis on DMRs using MissMethyl
+########################################### GO/KEGG analysis on DMRs using MissMethyl  ##########################################
 
-DMR_GO <- goregion(subset, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC")
+DMR_GO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC")
 DMR_GO <- DMR_GO %>% arrange(P.DE)
 
-DMR_KEGG <- goregion(subset, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC")
+DMR_KEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC")
 DMR_KEGG <- DMR_KEGG %>% arrange(P.DE)
 # note neuroactive ligand-receptor interaction is top hit for DMR using KEGG
 
-########## Outputs to create visualizations #################################
+############################################# Outputs to create visualizations ###################################################
 
 # output the quality control reports
 # Decode equivalent to Sample_Name and Status equal to Group between runs
@@ -183,5 +232,5 @@ cols <- groups[as.character(targets$Group)]
 
 pdf("./results/DMR_1.pdf")
 par(mfrow=c(1,1))
-DMR.plot(ranges=rangesDMR, dmr=1, CpGs=mVal, what="M", arraytype="EPIC", phen.col=cols, genome = "hg19")
+DMR.plot(ranges=rangesDMR, dmr=1, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
 dev.off()
