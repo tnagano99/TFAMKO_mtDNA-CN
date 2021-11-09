@@ -12,6 +12,7 @@ library(minfi)
 library(RColorBrewer)
 library(limma)
 library(DMRcate)
+library(ggplot2)
 
 # Update baseDir to proper location
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
@@ -81,11 +82,19 @@ for(i in 1:12){
 beta["rowMeansRun1"] <- rowMeans(beta %>% select(contains("HEK293T") & ends_with("1")))
 beta["rowMeansRun2"] <- rowMeans(beta %>% select(contains("HEK293T") & ends_with("2")))
 
-# threshold value used and number of probes remaining before 781118 probes
-# 0.2: 777150 0.1: 747004 
+# create scatter plot of rowMeansRun1 vs rowMeansRun2
 threshold <- 0.1
+beta['Threshold'] <- abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold
+
+pdf("./results/NC_Means_Scatter_0.2.pdf")
+par(mfrow=c(1,1))
+ggplot(beta, aes(x=rowMeansRun1, y=rowMeansRun2)) + geom_point(aes(color = factor(Threshold)))
+dev.off()
+
+# threshold value used and number of probes remaining before 781118 probes
+# 0.2: 777150; 0.15: 769026; 0.1: 747004 
 beta <- beta[abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold, ]
-beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2"))]
+beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2", "Threshold"))]
 
 # drop same rows in mVal for further analysis
 mVal <- mVal[(row.names(mVal) %in% row.names(beta)), ]
@@ -162,9 +171,9 @@ write.csv(FinalResults2, paste(baseDir, "results/Linear_Mixed_Model_lmerResults.
 dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=TRUE)
 write.csv(dmp, paste(baseDir, "/results/dmp.csv", sep=""))
 
-# Find differentially methylated probes 
+# Find differentially methylated probes using mtDNACN as continuous
 dmp_cont <- dmpFinder(mVal, pheno=targets$mtDNACN, type="continuous", shrinkVar=TRUE)
-write.csv(dmp, paste(baseDir, "/results/dmp.csv", sep=""))
+write.csv(dmp_cont, paste(baseDir, "/results/dmp_cont.csv", sep=""))
 
 ###################################### find differentially methylated regions using DMRcate  #############################################
 
@@ -177,29 +186,31 @@ ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6
 design <- model.matrix(~Type+Batch+ID)
 
 # annotate the beta values to include info on genomic position etc.
-# Coefficients not estimable: TFAM_KO_Clone_6
+# Coefficients not estimable: IDTFAM_KO_Clone_6
 myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 0.01)
 
 # using the annotation identify the diferentially methylated regions
-DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10)
-rangesDMR <- extractRanges(DMRs)
+DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10) # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
+rangesDMR <- extractRanges(DMRs, genome = "hg19")
 
 # export the DMR_ranges to csv file
 df = as(rangesDMR, "data.frame")
-write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
+write.csv(df, paste(baseDir, "/results/DMRranges.csv", sep=""))
+# write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
 
 # to read in rangesDMR
 # df2 = read.table("./results/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
 # gr2 = makeGRangesFromDataFrame(df2, keep.extra.columns=TRUE)
 
-########################################### GO/KEGG analysis on DMRs using MissMethyl  ##########################################
+# use goregion to find differentially methylated regions
+DMR_sigGO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC", plot.bias=TRUE)
+DMR_sigGO <- DMR_sigGO %>% arrange(P.DE)
+write.csv(DMR_sigGO, paste(baseDir, "/results/GO.csv", sep=""))
 
-DMR_GO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC")
-DMR_GO <- DMR_GO %>% arrange(P.DE)
-
-DMR_KEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC")
-DMR_KEGG <- DMR_KEGG %>% arrange(P.DE)
+DMR_sigKEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC", plot.bias=TRUE)
+DMR_sigKEGG <- DMR_sigKEGG %>% arrange(P.DE)
 # note neuroactive ligand-receptor interaction is top hit for DMR using KEGG
+write.csv(DMR_sigKEGG, paste(baseDir, "/results/KEGG_DMRcate.csv", sep=""))
 
 ############################################# Outputs to create visualizations ###################################################
 
@@ -234,3 +245,4 @@ pdf("./results/DMR_1.pdf")
 par(mfrow=c(1,1))
 DMR.plot(ranges=rangesDMR, dmr=1, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
 dev.off()
+

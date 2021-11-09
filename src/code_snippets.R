@@ -42,13 +42,11 @@ manhattan<-function(DMS, filename, sig=NULL){
 	##working from metal output###
 	if (is.null(sig)==TRUE){
 		ymin1=round( max(-log10(data$P.Value))+1)
-	}
-	else{
+	} else {
 		ymin1=12
 	}
 	title=c()
-	jpeg(paste("manhattan_", filename, ".jpeg",sep=""),res=400,width = 40,
-	height = 12,units="cm")
+	jpeg(paste("manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
 	chr <- c(1:22)
 	#Summary statistics
 	data$position<-round(data$start,digits=0)
@@ -57,6 +55,7 @@ manhattan<-function(DMS, filename, sig=NULL){
 	par(mar=c(5,5,2,2))
 	phy.max<-tapply(data$start, data$chr,max,na.rm=T)
 	cumlen=0
+	data <- data[!is.na(data$chr),]
 	for(i in chr){
 		cat(paste("Now working on chromosome ",i,"\r"))
 		data[data$chr==i,"loc"]<-data[data$chr==i,"position"]+cumlen
@@ -84,7 +83,7 @@ manhattan<-function(DMS, filename, sig=NULL){
 		cat(paste("Now working on chromosome ",i,"\r"))
 		#if(data$mlgpval > 7) col="blue" else col="red"
 		points(data[data$chr==i,"loc"],data[data$chr==i,"mlgpval"],
-			col=ifelse(data[data$chr==i,"mlgpval"] > 10, "red", col[i]),pch=20,cex=data[data$chr==i,"cex.val"])
+			col=ifelse(data[data$chr==i,"mlgpval"] > 10, "red", col[i]),pch=20) #,cex=data[data$chr==i,"cex.val"])
 		#,cex = data[data$chr==i,"cex.val"]
 	}
 	# add in line for significance
