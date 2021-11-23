@@ -30,7 +30,7 @@ mtDNACN <- targets$mtDNACN
 
 # read in the stored beta values csv
 # set the first column to be row labels and then drop the column
-EPICTFAMKO <- read.csv(paste(baseDir, "/results/beta.csv", sep=""))
+EPICTFAMKO <- read.csv(paste(baseDir, "/results/data/beta.csv", sep=""))
 rownames(EPICTFAMKO) <- EPICTFAMKO[,1]
 EPICTFAMKO <- EPICTFAMKO[,2:ncol(EPICTFAMKO)]
 
@@ -81,4 +81,4 @@ pvalue <- pchisq(zscores**2,1,lower.tail=F)
 min(pvalue)
 FinalResults2 <- cbind(FinalResults,pvalue)
 
-write.csv(FinalResults2, paste(baseDir, "results/Linear_Mixed_Model_lmerResults.csv", sep = "/"), quote=F)
+write.csv(FinalResults2, paste(baseDir, "results/data/Linear_Mixed_Model_lmerResults.csv", sep = "/"), quote=F)

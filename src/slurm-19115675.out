@@ -1,0 +1,255 @@
+change directory to script
+/var/spool/slurmd/job19115675/slurm_script: line 9: cd: ./projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/src: No such file or directory
+Load R module
+Lmod has detected the following error: The following module(s) are unknown:
+"R"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore-cache load "R"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+Run linear mixed model script
+Loading required package: Matrix
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:dplyr’:
+
+    combine, intersect, setdiff, union
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:dplyr’:
+
+    first, rename
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following objects are masked from ‘package:Matrix’:
+
+    expand, unname
+
+The following objects are masked from ‘package:base’:
+
+    expand.grid, I, unname
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following objects are masked from ‘package:dplyr’:
+
+    collapse, desc, slice
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: GenomeInfoDb
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+Loading required package: Biostrings
+Loading required package: XVector
+
+Attaching package: ‘Biostrings’
+
+The following object is masked from ‘package:base’:
+
+    strsplit
+
+Loading required package: bumphunter
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: locfit
+locfit 1.5-9.4 	 2020-03-24
+Setting options('download.file.method.GEOquery'='auto')
+Setting options('GEOquery.inmemory.gpl'=FALSE)
+
+Attaching package: ‘limma’
+
+The following object is masked from ‘package:BiocGenerics’:
+
+    plotMA
+
+
+Warning message:
+replacing previous import 'minfi::getMeth' by 'bsseq::getMeth' when loading 'DMRcate' 
+[read.metharray.sheet] Found the following CSV files:
+[1] "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/data/run_combined/methylation_combined_runs.csv"
+Warning message:
+In readLines(file) :
+  incomplete final line found on '/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/data/run_combined/methylation_combined_runs.csv'
+On probe 10000
+On probe 20000
+On probe 30000
+On probe 40000
+On probe 50000
+On probe 60000
+On probe 70000
+On probe 80000
+On probe 90000
+On probe 100000
+On probe 110000
+On probe 120000
+On probe 130000
+On probe 140000
+On probe 150000
+On probe 160000
+On probe 170000
+On probe 180000
+On probe 190000
+On probe 200000
+On probe 210000
+On probe 220000
+On probe 230000
+On probe 240000
+On probe 250000
+On probe 260000
+On probe 270000
+On probe 280000
+On probe 290000
+On probe 300000
+On probe 310000
+On probe 320000
+On probe 330000
+On probe 340000
+On probe 350000
+On probe 360000
+On probe 370000
+On probe 380000
+On probe 390000
+On probe 400000
+On probe 410000
+On probe 420000
+On probe 430000
+On probe 440000
+On probe 450000
+On probe 460000
+On probe 470000
+On probe 480000
+On probe 490000
+On probe 500000
+On probe 510000
+On probe 520000
+On probe 530000
+On probe 540000
+On probe 550000
+On probe 560000
+On probe 570000
+On probe 580000
+On probe 590000
+On probe 600000
+On probe 610000
+On probe 620000
+On probe 630000
+On probe 640000
+On probe 650000
+On probe 660000
+On probe 670000
+On probe 680000
+On probe 690000
+On probe 700000
+On probe 710000
+On probe 720000
+On probe 730000
+On probe 740000
+On probe 750000
+On probe 760000
+Warning message:
+In readLines(file) :
+  incomplete final line found on '/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/data/run_combined/methylation_combined_runs.csv'
+[1] 0

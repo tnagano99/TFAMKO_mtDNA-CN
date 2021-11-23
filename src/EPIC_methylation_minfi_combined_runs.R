@@ -49,6 +49,7 @@ detP <- detP[match(featureNames(mSetSq),rownames(detP)),]
 # find all probes that have failed in one or more samples based on p-value < 0.01
 keep <- rowSums(detP < 0.01) == ncol(mSetSq) 
 mSetSqFlt <- mSetSq[keep,]
+
 # table(keep) # 15465 probes removed
 
 # remove Pidsley Cross reactive probes Pidsley et al. https://doi.org/10.1186/s13059-016-1066-1
@@ -70,12 +71,14 @@ mSetSqFlt <- dropLociWithSnps(mSetSqFlt, snps = c("CpG"))
 # distribution for m values, but not for beta values
 beta <- as.data.frame(getBeta(mSetSqFlt))
 mVal <- as.data.frame(getM(mSetSqFlt))
+detP <- as.data.frame(detP)
 
 # rename beta columns with decode
 for(i in 1:12){
         old_col <- paste(targets$Slide[i], targets$Array[i], sep="_")
         names(beta)[names(beta) == old_col] <- targets$Decode[i]
         names(mVal)[names(mVal) == old_col] <- targets$Decode[i]
+		names(detP)[names(detP) == old_col] <- targets$Decode[i]
 }
 
 # mean filter check between runs and filter out rows based on mean differences on negative controls
@@ -83,10 +86,10 @@ beta["rowMeansRun1"] <- rowMeans(beta %>% select(contains("HEK293T") & ends_with
 beta["rowMeansRun2"] <- rowMeans(beta %>% select(contains("HEK293T") & ends_with("2")))
 
 # create scatter plot of rowMeansRun1 vs rowMeansRun2
-threshold <- 0.1
+threshold <- 0.15
 beta['Threshold'] <- abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold
 
-pdf("./results/NC_Means_Scatter_0.2.pdf")
+pdf("./results/plots/NC_Means_Scatter_0.15.pdf")
 par(mfrow=c(1,1))
 ggplot(beta, aes(x=rowMeansRun1, y=rowMeansRun2)) + geom_point(aes(color = factor(Threshold)))
 dev.off()
@@ -99,9 +102,13 @@ beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2", "Threshold")
 # drop same rows in mVal for further analysis
 mVal <- mVal[(row.names(mVal) %in% row.names(beta)), ]
 
+# drop detP rows that are not in remaining beta for local FEM analysis
+detP <- detP[(row.names(detP) %in% row.names(beta)), ]
+
 # write output files to results
-write.csv(beta, paste(baseDir, "/results/beta.csv", sep=""))
-write.csv(mVal, paste(baseDir, "/results/mVal.csv", sep=""))
+write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
+write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
+write.csv(detP, paste(baseDir, "/results/data/detP.csv", sep=""))
 
 # convert beta and m-values to matrices for further analysis
 beta <- data.matrix(beta)
@@ -169,11 +176,11 @@ write.csv(FinalResults2, paste(baseDir, "results/Linear_Mixed_Model_lmerResults.
 
 # Find differentially methylated probes using categories of knockout or not
 dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=TRUE)
-write.csv(dmp, paste(baseDir, "/results/dmp.csv", sep=""))
+write.csv(dmp, paste(baseDir, "/results/data/dmp.csv", sep=""))
 
 # Find differentially methylated probes using mtDNACN as continuous
 dmp_cont <- dmpFinder(mVal, pheno=targets$mtDNACN, type="continuous", shrinkVar=TRUE)
-write.csv(dmp_cont, paste(baseDir, "/results/dmp_cont.csv", sep=""))
+write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
 
 ###################################### find differentially methylated regions using DMRcate  #############################################
 
@@ -183,43 +190,66 @@ Batch <- factor(targets$Slide) # run 1 or run 2 based on slide number
 ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6 different samples (3 KO 3 NC)
 
 # create design matrix differentiating samples, KO or Normal and batch effects
-design <- model.matrix(~Type+Batch+ID)
+design <- model.matrix(~Type+Batch+ID) #1 some column vectors are linearly dependent
+design <- model.matrix(~Batch+ID) #2
+design <- model.matrix(~Type+ID) #3 some column vector are linearly dependent
+design <- model.matrix(~Type+Batch) #4
+# write.csv(design, paste(baseDir, "/results/data/design.csv", sep=""))
 
 # annotate the beta values to include info on genomic position etc.
 # Coefficients not estimable: IDTFAM_KO_Clone_6
+# https://support.bioconductor.org/p/39385/
+# this is likely due to confounding between Type and ID because the ID gives information on KO or NC for each of the samples individually
+# but Type gives the group of samples which are KO or NC
 myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 0.01)
 
 # using the annotation identify the diferentially methylated regions
-DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10) # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
-rangesDMR <- extractRanges(DMRs, genome = "hg19")
+# automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
+# use betacutoff of 0.05; removes 
+DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) 
+rangesDMR <- extractRanges(DMRs, genome = "hg19") # 1) 3843 2) 15 3) 2644 4) 2256
+testRanges <- rangesDMR[rangesDMR$meandiff > 0.01] # 1) 3659 2) 12 3) 2480 4) 2082
+
+# create Manhattan plot
+rangesDMR$chr <- gsub("chr","",rangesDMR$seqnames)
+rangesDMR<-subset(rangesDMR, (rangesDMR$seqnames!="0"))
+rangesDMR<-subset(rangesDMR, (rangesDMR$seqnames!="X"))
+rangesDMR<-subset(rangesDMR, (rangesDMR$seqnames!="Y"))
+rangesDMR$seqnames <- as.numeric(rangesDMR$seqnames)
+
+colnames(rangesDMR)[colnames(rangesDMR) == "seqnames"] <- "chr"
+colnames(rangesDMR)[colnames(rangesDMR) == "HMFDR"] <- "P.Value"
+colnames(rangesDMR)[colnames(rangesDMR) == "P.Value"] <- "HMFDR"
+colnames(rangesDMR)[colnames(rangesDMR) == "Fisher"] <- "P.Value"
+manhattan(DMS=rangesDMR, filename="DMRcate", sig=6)
 
 # export the DMR_ranges to csv file
 df = as(rangesDMR, "data.frame")
-write.csv(df, paste(baseDir, "/results/DMRranges.csv", sep=""))
+write.csv(df, paste(baseDir, "/results/data/DMRranges.csv", sep=""))
 # write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
 
 # to read in rangesDMR
-# df2 = read.table("./results/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
+# df2 = read.table("./results/data/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
 # gr2 = makeGRangesFromDataFrame(df2, keep.extra.columns=TRUE)
 
 # use goregion to find differentially methylated regions
 DMR_sigGO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC", plot.bias=TRUE)
 DMR_sigGO <- DMR_sigGO %>% arrange(P.DE)
-write.csv(DMR_sigGO, paste(baseDir, "/results/GO.csv", sep=""))
+write.csv(DMR_sigGO, paste(baseDir, "/results/data/GO_DMRcate.csv", sep=""))
 
 DMR_sigKEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC", plot.bias=TRUE)
 DMR_sigKEGG <- DMR_sigKEGG %>% arrange(P.DE)
 # note neuroactive ligand-receptor interaction is top hit for DMR using KEGG
-write.csv(DMR_sigKEGG, paste(baseDir, "/results/KEGG_DMRcate.csv", sep=""))
+write.csv(DMR_sigKEGG, paste(baseDir, "/results/data/KEGG_DMRcate.csv", sep=""))
 
 ############################################# Outputs to create visualizations ###################################################
 
 # output the quality control reports
 # Decode equivalent to Sample_Name and Status equal to Group between runs
-qcReport(rgSet, sampNames=targets$Decode, sampGroup = targets$Group, pdf="./results/qcreport.pdf")
+qcReport(rgSet, sampNames=targets$Decode, sampGroup = targets$Group, pdf="./results/plots/qcreport.pdf")
 
 # visualize  normalization
-pdf("./results/norm.pdf")
+pdf("./results/plots/norm.pdf")
 par(mfrow=c(1,2))
 densityPlot(getBeta(mSetSq), sampGroups=targets$Group, main="Normalized", legend=FALSE)
 legend("top", legend = levels(factor(targets$Group)), text.col=brewer.pal(8,"Dark2"))
@@ -229,7 +259,7 @@ dev.off()
 
 # output MDS plot of the methylation data to results for Run 1
 # shows PC 1 separates the Control and KO lines nicely
-pdf("./results/MDS.pdf")
+pdf("./results/plots/MDS.pdf")
 par(mfrow=c(1,1))
 plotMDS(getM(mSetSqFlt), top=1000, gene.selection="common", cex=0.8)
 legend("right", legend=levels(factor(targets$Group)),
@@ -241,7 +271,7 @@ dev.off()
 groups <- c(Knockout="magenta", Normal="forestgreen")
 cols <- groups[as.character(targets$Group)]
 
-pdf("./results/DMR_1.pdf")
+pdf("./results/plots/DMR_1.pdf")
 par(mfrow=c(1,1))
 DMR.plot(ranges=rangesDMR, dmr=1, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
 dev.off()

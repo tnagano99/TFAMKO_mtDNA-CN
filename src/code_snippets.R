@@ -40,13 +40,10 @@ manhattan<-function(DMS, filename, sig=NULL){
 	# lambda<-estlambda(data$P.Value)
 	# cat(paste("Lambda =",lambda,"\n"))
 	##working from metal output###
-	if (is.null(sig)==TRUE){
-		ymin1=round( max(-log10(data$P.Value))+1)
-	} else {
-		ymin1=12
-	}
+	# ymin1=round( max(-log10(data$P.Value))+1) + 10
+	ymin1 = 10
 	title=c()
-	jpeg(paste("manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
+	jpeg(paste("./results/plots/manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
 	chr <- c(1:22)
 	#Summary statistics
 	data$position<-round(data$start,digits=0)
@@ -67,13 +64,11 @@ manhattan<-function(DMS, filename, sig=NULL){
 	plot(data[,"loc"],data[,"mlgpval"],type="n",yaxt="n",xaxt="n",
 		xlab="chromosome",
 		ylab=expression(-log[10]*P),main=title,
-		xlim=c(0,max(data$loc,na.rm=T)),cex.lab=1.5,ylim=c(0,ymin1))
+		xlim=c(0,max(data$loc + 1,na.rm=T)),cex.lab=1.5,ylim=c(0,ymin1))
 		col=ifelse(data$mlgpval< 10, (rep(c("black","gray48"),13)), "red" )
 	axis(side=2, at=seq(from=0,to=ymin1,by=2), labels=seq(from=0,to=ymin1,by=2),
 		tick=T,cex.axis=0.9,las=1)
-	axis(side=1, at=phy.med[c(1:22)], labels=chr[c(1:22)],
-		tick=T,cex.axis=0.7,las=1)
-
+	axis(side=1, at=phy.med[c(1:22)], labels=c(1:22), cex.axis=0.9)
 		#cex.axis=0.8 instead of cex.axis=1.2
 	#axis(side=1, at=phy.med[c(20:23)], labels=chr[c(20:23)],
 	#	tick=T,cex.axis=1,las=1)
@@ -83,7 +78,7 @@ manhattan<-function(DMS, filename, sig=NULL){
 		cat(paste("Now working on chromosome ",i,"\r"))
 		#if(data$mlgpval > 7) col="blue" else col="red"
 		points(data[data$chr==i,"loc"],data[data$chr==i,"mlgpval"],
-			col=ifelse(data[data$chr==i,"mlgpval"] > 10, "red", col[i]),pch=20) #,cex=data[data$chr==i,"cex.val"])
+			col=ifelse(data[data$chr==i,"mlgpval"] > sig, "red", col[i]),pch=20) #,cex=data[data$chr==i,"cex.val"])
 		#,cex = data[data$chr==i,"cex.val"]
 	}
 	# add in line for significance
