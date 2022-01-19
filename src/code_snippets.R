@@ -40,8 +40,9 @@ manhattan<-function(DMS, filename, sig=NULL){
 	# lambda<-estlambda(data$P.Value)
 	# cat(paste("Lambda =",lambda,"\n"))
 	##working from metal output###
-	# ymin1=round( max(-log10(data$P.Value))+1) + 10
-	ymin1 = 10
+	# ymin1= round( max(-log10(data$P.Value))+1)
+	ymin1 = 100
+
 	title=c()
 	jpeg(paste("./results/plots/manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
 	chr <- c(1:22)

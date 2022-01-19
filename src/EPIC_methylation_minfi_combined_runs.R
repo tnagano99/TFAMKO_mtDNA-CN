@@ -14,6 +14,7 @@ library(limma)
 library(DMRcate)
 library(ggplot2)
 
+
 # Update baseDir to proper location
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 
@@ -103,12 +104,12 @@ beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2", "Threshold")
 mVal <- mVal[(row.names(mVal) %in% row.names(beta)), ]
 
 # drop detP rows that are not in remaining beta for local FEM analysis
-detP <- detP[(row.names(detP) %in% row.names(beta)), ]
+# detP <- detP[(row.names(detP) %in% row.names(beta)), ]
 
 # write output files to results
 write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
 write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
-write.csv(detP, paste(baseDir, "/results/data/detP.csv", sep=""))
+# write.csv(detP, paste(baseDir, "/results/data/detP.csv", sep=""))
 
 # convert beta and m-values to matrices for further analysis
 beta <- data.matrix(beta)
@@ -189,13 +190,27 @@ Type <- factor(targets$Group) # knockout or normal
 Batch <- factor(targets$Slide) # run 1 or run 2 based on slide number
 ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6 different samples (3 KO 3 NC)
 
+# # testing which columns are most similar based on correlation with top hits
+# Type <- as.numeric(factor(targets$Group))
+# Batch <- as.numeric(factor(targets$Slide)) # run 1 or run 2 based on slide number
+# ID <- as.numeric(factor(substr(targets$Decode, 1, nchar(targets$Decode)-2))) 
+
+# # replace with CpG site
+# cpg <- beta['cg03670369',]
+# cor(cpg, Batch)
+# cor(cpg, ID)
+# cor(cpg, Type)
+
 # create design matrix differentiating samples, KO or Normal and batch effects
-design <- model.matrix(~Type+Batch+ID) #1 some column vectors are linearly dependent
-design <- model.matrix(~Batch+ID) #2
-design <- model.matrix(~Type+ID) #3 some column vector are linearly dependent
+# using Type and Batch is the best combination to use
+# look at notes at bottom of script for correlation between top CpGs and Batch/ID
+# design <- model.matrix(~Type+Batch+ID) #1 some column vectors are linearly dependent
+# design <- model.matrix(~Batch+ID) #2
+# design <- model.matrix(~Type+ID) #3 some column vector are linearly dependent
 design <- model.matrix(~Type+Batch) #4
 # write.csv(design, paste(baseDir, "/results/data/design.csv", sep=""))
 
+# FIXED
 # annotate the beta values to include info on genomic position etc.
 # Coefficients not estimable: IDTFAM_KO_Clone_6
 # https://support.bioconductor.org/p/39385/
@@ -205,32 +220,11 @@ myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = 
 
 # using the annotation identify the diferentially methylated regions
 # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
-# use betacutoff of 0.05; removes 
+# use betacutoff of 0.05; removes CpG where beta shift is less than 0.05
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) 
-rangesDMR <- extractRanges(DMRs, genome = "hg19") # 1) 3843 2) 15 3) 2644 4) 2256
-testRanges <- rangesDMR[rangesDMR$meandiff > 0.01] # 1) 3659 2) 12 3) 2480 4) 2082
-
-# create Manhattan plot
-rangesDMR$chr <- gsub("chr","",rangesDMR$seqnames)
-rangesDMR<-subset(rangesDMR, (rangesDMR$seqnames!="0"))
-rangesDMR<-subset(rangesDMR, (rangesDMR$seqnames!="X"))
-rangesDMR<-subset(rangesDMR, (rangesDMR$seqnames!="Y"))
-rangesDMR$seqnames <- as.numeric(rangesDMR$seqnames)
-
-colnames(rangesDMR)[colnames(rangesDMR) == "seqnames"] <- "chr"
-colnames(rangesDMR)[colnames(rangesDMR) == "HMFDR"] <- "P.Value"
-colnames(rangesDMR)[colnames(rangesDMR) == "P.Value"] <- "HMFDR"
-colnames(rangesDMR)[colnames(rangesDMR) == "Fisher"] <- "P.Value"
-manhattan(DMS=rangesDMR, filename="DMRcate", sig=6)
-
-# export the DMR_ranges to csv file
-df = as(rangesDMR, "data.frame")
-write.csv(df, paste(baseDir, "/results/data/DMRranges.csv", sep=""))
-# write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
-
-# to read in rangesDMR
-# df2 = read.table("./results/data/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
-# gr2 = makeGRangesFromDataFrame(df2, keep.extra.columns=TRUE)
+rangesDMR <- extractRanges(DMRs, genome = "hg19")
+# removes ranges with mean methylation between groups is less than or equal to 0.01
+rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.01]
 
 # use goregion to find differentially methylated regions
 DMR_sigGO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC", plot.bias=TRUE)
@@ -241,6 +235,29 @@ DMR_sigKEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG"
 DMR_sigKEGG <- DMR_sigKEGG %>% arrange(P.DE)
 # note neuroactive ligand-receptor interaction is top hit for DMR using KEGG
 write.csv(DMR_sigKEGG, paste(baseDir, "/results/data/KEGG_DMRcate.csv", sep=""))
+
+# Convert to data frame for Manhattan plot
+rangesDMR <- as.data.frame(rangesDMR)
+
+# create Manhattan plot
+rangesDMR$chr <- gsub("chr","",rangesDMR$seqnames)
+rangesDMR<-subset(rangesDMR, (rangesDMR$chr!="0"))
+rangesDMR<-subset(rangesDMR, (rangesDMR$chr!="X"))
+rangesDMR<-subset(rangesDMR, (rangesDMR$chr!="Y"))
+rangesDMR$chr <- as.numeric(rangesDMR$chr)
+
+colnames(rangesDMR)[colnames(rangesDMR) == "HMFDR"] <- "P.Value"
+manhattan(DMS=rangesDMR, filename="DMP", sig=4.61) # there are 2012 ranges, 0.05/2012 ~= 10^-4.61
+
+# export the DMR_ranges to csv file
+df = as(rangesDMR, "data.frame")
+write.csv(df, paste(baseDir, "/results/data/DMRranges.csv", sep=""))
+# write.table(df, "./results/DMRranges.csv", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
+
+# to read in rangesDMR
+# df2 = read.table("./results/data/DMRranges.csv", header = TRUE, sep = "\t", dec = ".")
+# gr2 = makeGRangesFromDataFrame(df2, keep.extra.columns=TRUE)
+
 
 ############################################# Outputs to create visualizations ###################################################
 
@@ -271,8 +288,23 @@ dev.off()
 groups <- c(Knockout="magenta", Normal="forestgreen")
 cols <- groups[as.character(targets$Group)]
 
-pdf("./results/plots/DMR_1.pdf")
-par(mfrow=c(1,1))
-DMR.plot(ranges=rangesDMR, dmr=1, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
-dev.off()
+for (i in 1:10) {
+	pdf(paste0("./results/plots/DMR_", i, ".pdf"))
+	par(mfrow=c(1,1))
+	DMR.plot(ranges=rangesDMR, dmr=i, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
+	dev.off()
+}
 
+# Batch Correlation
+# cg06161779: -0.03410703
+# cg12369078: -0.03286013
+# cg20352894: -0.03580426
+# cg16722220: -0.06006359
+# cg03670369: -0.04585888
+
+# ID Correlation
+# cg06161779: 0.8930611
+# cg12369078: -0.8639258
+# cg20352894: 0.8791256
+# cg16722220: 0.8861897
+# cg03670369: -0.8705056
