@@ -115,64 +115,6 @@ write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
 beta <- data.matrix(beta)
 mVal <- data.matrix(mVal)
 
-###################################### find differentially methylated probes using a linear mixed model ##################################
-
-# code to run a linear model for each probe
-Batch <- targets$Slide # run 1 or run 2 based on slide number
-ID <- substr(targets$Decode, 1, nchar(targets$Decode)-2) # specify the 6 different samples (3 KO 3 NC)
-mtDNACN <- targets$mtDNACN
-EPICTFAMKO <- beta
-
-library(lme4)
-## Define the lm function
-runlme <- function(thisdat) {
-   lme1 <- eval(parse(text=expression));    
-   ##Get the summary of the model
-   smodel = summary(lme1);
-   return(smodel)
-}
-
-varnames <- c("mtDNACN")
-Bmat <- SEmat <- Tmat <- matrix(NA,nrow=nrow(EPICTFAMKO),ncol=1)
-rownames(Bmat) <- rownames(SEmat) <- rownames(Tmat) <- rownames(EPICTFAMKO)
-colnames(Bmat) <- paste("Estimate",varnames,sep=".")
-colnames(SEmat) <- paste("Std.Error",varnames,sep=".")
-colnames(Tmat) <- paste("t-value",varnames,sep=".")
-
-for (i in 1:nrow(EPICTFAMKO)) { 
-	if (i %% 10000 == 0) {
-		cat(paste("On probe ",i,"\n",sep=""))
-	} #outputs every 10000 probes just to check in
-
-	thisExpr <- as.numeric(EPICTFAMKO[i,])
-	expression <- "lmer(thisExpr~mtDNACN + (1|Batch)+(1|ID), na.action=na.exclude, control = lmerControl(calc.derivs = FALSE), REML=FALSE)"
-
-	designmatrix <- data.frame(thisExpr, mtDNACN, Batch, ID)
-	lme1.out <- try(runlme(designmatrix),silent=F);
-
-	if (substr(lme1.out[1],1,5)!="Error") {
-		tabOut <- lme1.out$coefficients
-		Bmat[i,] <- tabOut[2,"Estimate"]
-		SEmat[i,] <- tabOut[2,"Std. Error"]
-		Tmat[i,] <- tabOut[2,"t value"]
-	} else {
-		cat('Error in LME of Probe',rownames(EPICTFAMKO)[i],"id",'\n')
-		cat('Setting P-value=NA,Beta value=NA, and =NA\n');
-		Bmat[i,] <- SEmat[i,] <- Tmat[i,] <- NA;
-	}
-}
-
-warnings()
-
-FinalResults <- cbind(Bmat, SEmat, Tmat)
-FinalResults <- as.data.frame(FinalResults)
-zscores <- FinalResults[,3]
-pvalue <- pchisq(zscores**2,1,lower.tail=F)
-min(pvalue)
-FinalResults2 <- cbind(FinalResults,pvalue)
-
-write.csv(FinalResults2, paste(baseDir, "results/Linear_Mixed_Model_lmerResults.csv", sep = "/"), quote=F)
-
 ###################################### find differentially methylated probes using dmpFinder #############################################
 
 # Find differentially methylated probes using categories of knockout or not
@@ -218,6 +160,17 @@ design <- model.matrix(~Type+Batch) #4
 # but Type gives the group of samples which are KO or NC
 myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 0.01)
 
+##### NOTE #####
+# regions are determined by applying gaussian smoothing to the CpG-site test statistics using a given bandwidth set by lambda
+# model the test statistic using chi-square distribution
+# apply p-value adjustment using FDR to find significant CpG-sites
+# group nearby CpG sites using lambda
+# In this case our regions are determined by significant CpG sites within lambda (1000 in this case) base pairs of each other
+# and there needs to be a minimum of 10 CpG sites to be considered a region based on our criteria 
+# Stouffer: Stouffer summary transform of the individual CpG FDRs.
+# HMFDR: Harmonic mean of the individual CpG FDRs.
+# Fisher: Fisher combined probability transform of the individual CpG FDRs.
+
 # using the annotation identify the diferentially methylated regions
 # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
 # use betacutoff of 0.05; removes CpG where beta shift is less than 0.05
@@ -247,7 +200,7 @@ rangesDMR<-subset(rangesDMR, (rangesDMR$chr!="Y"))
 rangesDMR$chr <- as.numeric(rangesDMR$chr)
 
 colnames(rangesDMR)[colnames(rangesDMR) == "HMFDR"] <- "P.Value"
-manhattan(DMS=rangesDMR, filename="DMP", sig=4.61) # there are 2012 ranges, 0.05/2012 ~= 10^-4.61
+manhattan(DMS=rangesDMR, filename="DMP", sig=4.61) # there are 2082 ranges, 0.05/2082 ~= 10^-4.62
 
 # export the DMR_ranges to csv file
 df = as(rangesDMR, "data.frame")
@@ -295,16 +248,39 @@ for (i in 1:10) {
 	dev.off()
 }
 
-# Batch Correlation
-# cg06161779: -0.03410703
-# cg12369078: -0.03286013
-# cg20352894: -0.03580426
-# cg16722220: -0.06006359
-# cg03670369: -0.04585888
+# plot CpG beta values against mtDNA-CN
+# using top CpGs from dmpFinder analysis using mtDNA-CN as continuous variable
+CpGs <- rownames(dmp_cont)[1:20] 
+CpG <- CpGs[20]
+CpG_beta <- as.vector(beta[CpG,])
+mtDNACN <- targets$mtDNACN
+df <- data.frame(CpG_beta, mtDNACN)
+Type <- factor(targets$Group)
+# ID <- substr(targets$Decode, 1, nchar(targets$Decode)-2)
+values <- coef(lm(formula = CpG_beta ~ mtDNACN, data = df))
 
-# ID Correlation
-# cg06161779: 0.8930611
-# cg12369078: -0.8639258
-# cg20352894: 0.8791256
-# cg16722220: 0.8861897
-# cg03670369: -0.8705056
+pdf(paste0("./results/plots/mtDNACN-", CpG, ".pdf"))
+par(mfrow=c(1,1))
+ggplot(df, aes(x=mtDNACN, y=CpG_beta)) + geom_point(aes(color = Type)) + geom_abline(intercept = values[1], slope = values[2])
+dev.off()
+
+# create qqplot using qqman for probe analysis
+library(qqman)
+
+summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont.csv", sep = "")))
+summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp.csv", sep = "")))
+summaryStats<- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = "")))
+# summaryStats <- as.data.frame(read.csv("dmp_cont.csv"))
+# summaryStats <- as.data.frame(read.csv("Linear_Mixed_Model_lmerResults.csv"))
+
+pdf(paste0("./results/plots/QQ_LMM.pdf"))
+par(mfrow=c(1,1))
+qq(summaryStats$pvalue)
+dev.off()
+
+# create qqplot using qqman for region analysis
+
+pdf(paste0("./results/plots/QQ_DMR.pdf"))
+par(mfrow=c(1,1))
+qq(rangesDMR$HMFDR)
+dev.off()

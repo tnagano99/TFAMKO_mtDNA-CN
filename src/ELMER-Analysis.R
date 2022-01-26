@@ -6,6 +6,8 @@
 
 library(ELMER)
 library(MultiAssayExperiment)
+library(data.table)
+library(dplyr)
 
 # setwd("/dcs01/arking/arkinglab/active/projects/aric/epigenetics/ccastell/EPIC/Data/EPICRerun/")
 setwd("../results/data")
@@ -79,9 +81,16 @@ sig.diff <- get.diff.meth(data = data,
 
 sig.diff <- sig.diff[order(sig.diff$pvalue),]
 
+sig_cpgs <- as.data.frame(read.csv("dmp_cont.csv"))
+sig_cpgs <- filter(sig_cpgs, pval < 1e-7)
+
 nearGenes <- GetNearGenes(data = data, 
-                         probes = sig.diff$probe, 
-                         numFlankingGenes = 40) # 20 upstream and 20 dowstream genes
+                         probes = sig_cpgs$X, 
+                         numFlankingGenes = 40)
+
+# nearGenes <- GetNearGenes(data = data, 
+#                          probes = sig.diff$probe, 
+#                          numFlankingGenes = 40) # 20 upstream and 20 dowstream genes
 
 pairs <- get.pair(data = data,
                       group.col = "GroupLabel",
@@ -97,10 +106,12 @@ pairs <- get.pair(data = data,
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL", diff.dir="both")
+                      label = "ALL_DMP_CONT", diff.dir="both")
 
 save.image("ELMER_TFAMKO_INTER.RData")
 
+# pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
+pairs <- read.csv("getPair.ALL.all.pairs.statistic.csv")
 pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
@@ -121,69 +132,77 @@ TF <- get.TFs(data = data,
 
 save.image("ELMER_TFAMKO_FINAL.RData")
 
-
-write.csv(pairs, "getPair.ALL.all.pairs.statistic_20.csv", quote=F)
-
 #########
 
 
-# scatter.plot(data = data,
-#        byPair = list(probe = c("cg00095138"), gene = c("ENSG00000145423")), 
-#        category = "GroupLabel", save = TRUE, lm_line = TRUE)
+scatter.plot(data = data,
+       byPair = list(probe = c("cg00095138"), gene = c("ENSG00000145423")), 
+       category = "GroupLabel", save = TRUE, lm_line = TRUE)
 
-# #need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
+#need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
 
-# #One probe and all nearby genes
-# scatter.plot(data = data,
-#              byProbe = list(probe = c("cg14557185"), numFlankingGenes = 20), 
-#              category = "GroupLabel", 
-#              lm = TRUE, # Draw linear regression curve
-#              save = TRUE) 
+#One probe and all nearby genes
+# cg14557185 most significant
+probes20 <- sig.diff$probe[1:10]
+for (probes in probes20) {
+  scatter.plot(data = data,
+              byProbe = list(probe = c(probes), numFlankingGenes = 40), 
+              category = "GroupLabel", 
+              lm = TRUE, # Draw linear regression curve
+              save = TRUE,
+              dir.out = "../plots") 
+}
 
-# #schematic plot nearby genes
-# schematic.plot(pair = pairs, 
-#                data = data,
-#                group.col = "GroupLabel",
-#                byProbe = pairs$Probe[1],
-#                save = TRUE)
+#schematic plot nearby genes
+schematic.plot(pair = pairs, 
+               data = data,
+               group.col = "GroupLabel",
+               byProbe = pairs$Probe[1],
+               save = TRUE,
+               dir.out = "../plots")
 
-# #schematic plot nearby probes together
-# schematic.plot(pair = pairs, 
-#                data = data,   
-#                group.col = "GroupLabel", 
-#                byGene = pairs$GeneID[1],
-#                save = TRUE)
+#schematic plot nearby probes together
+schematic.plot(pair = pairs, 
+               data = data,   
+               group.col = "GroupLabel", 
+               byGene = pairs$GeneID[1],
+               save = TRUE,
+               dir.out = "../plots")
 
-# #TF expression vs. average DNA methylation
-# scatter.plot(data = data,
-#              byTF = list(TF = c("GATA1","GATA2"),
-#                          probe = enriched.motif[[names(enriched.motif)[2]]]), 
-#              category = "GroupLabel",
-#              save = TRUE, 
-#              lm_line = TRUE)
+#TF expression vs. average DNA methylation
+# try this gene GABBR1
+scatter.plot(data = data,
+             byTF = list(TF = c("MAFK", "MAF", "MAFF", "MAFB"),
+                         probe = enriched.motif[[names(enriched.motif)[2]]]), 
+             category = "GroupLabel",
+             save = TRUE, 
+             lm_line = TRUE,
+             dir.out = "../plots")
 
-# enrich2 <- read.csv("getMotif.ALL.motif.enrichment.csv", header=T)
+enrich2 <- read.csv("getMotif.ALL.motif.enrichment.csv", header=T)
 
-# motif.enrichment.plot(motif.enrichment = enrich2, 
-#                       significant = list(OR = 1.1,lowerOR = 1.1), 
-#                       label = "ALL", 
-#                       summary = TRUE,
-#                       save = FALSE)  
+motif.enrichment.plot(motif.enrichment = enrich2, 
+                      significant = list(OR = 1.1,lowerOR = 1.1), 
+                      label = "ALL", 
+                      summary = TRUE,
+                      save = TRUE,
+                      dir.out = "../plots")  
 
-# heatmapPairs(data = data, 
-#              group.col = "GroupLabel",
-#               group1 =  "Experiment",
-#               group2 = "Control",
-#              pairs = pairs,
-#              filename =  NULL)
+heatmapPairs(data = data, 
+             group.col = "GroupLabel",
+             group1 =  "Experiment",
+             group2 = "Control",
+             pairs = pairs,
+             filename =  "HeatmapPairs.pdf")
              
-# load("getTF.ALL.TFs.with.motif.pvalue.rda")
-# motif <- colnames(TF.meth.cor)[1]
-# TF.rank.plot(motif.pvalue = TF.meth.cor, 
-#              motif = motif,
-#              save = TRUE) 
+load("getTF.ALL.TFs.with.motif.pvalue.rda")
+motif <- colnames(TF.meth.cor)[1]
+TF.rank.plot(motif.pvalue = TF.meth.cor, 
+             motif = motif,
+             save = TRUE,
+             dir.out = "../plots") 
              
              
              
-#              pairs.first <- pair[match(unique(pair$Symbol), pair$Symbol),]
+             pairs.first <- pair[match(unique(pair$Symbol), pair$Symbol),]
         
