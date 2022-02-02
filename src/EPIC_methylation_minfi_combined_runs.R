@@ -14,7 +14,6 @@ library(limma)
 library(DMRcate)
 library(ggplot2)
 
-
 # Update baseDir to proper location
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 
@@ -62,7 +61,7 @@ mSetSqFlt <- mSetSqFlt[pids,]
 # table(pids) # 42532 probes removed
 
 # remove probes affected by SNPs keep default 0 for maf because there should be no genetic variation in cell culture
-# mSetSqFlt: Before: 807862 After: 781118
+# mSetSqFlt: Before: 807862 After: 781118 After w/o SBE: 780637 
 mSetSqFlt <- dropLociWithSnps(mSetSqFlt, snps = c("CpG"))
 
 # need to get out beta or m values
@@ -72,7 +71,6 @@ mSetSqFlt <- dropLociWithSnps(mSetSqFlt, snps = c("CpG"))
 # distribution for m values, but not for beta values
 beta <- as.data.frame(getBeta(mSetSqFlt))
 mVal <- as.data.frame(getM(mSetSqFlt))
-detP <- as.data.frame(detP)
 
 # rename beta columns with decode
 for(i in 1:12){
@@ -90,30 +88,30 @@ beta["rowMeansRun2"] <- rowMeans(beta %>% select(contains("HEK293T") & ends_with
 threshold <- 0.15
 beta['Threshold'] <- abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold
 
-pdf("./results/plots/NC_Means_Scatter_0.15.pdf")
-par(mfrow=c(1,1))
-ggplot(beta, aes(x=rowMeansRun1, y=rowMeansRun2)) + geom_point(aes(color = factor(Threshold)))
-dev.off()
-
 # threshold value used and number of probes remaining before 781118 probes
 # 0.2: 777150; 0.15: 769026; 0.1: 747004 
+# c('cg26094004', 'cg26563141', 'cg08899667', 'cg21051031', 'cg14575356', 'cg23513930')
+# cg26094004, cg21051031, cg23513930 removed in both
+# cg26563141 removed when threshold is 0.1 not when 0.15
 beta <- beta[abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold, ]
 beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2", "Threshold"))]
 
 # drop same rows in mVal for further analysis
 mVal <- mVal[(row.names(mVal) %in% row.names(beta)), ]
 
-# drop detP rows that are not in remaining beta for local FEM analysis
-# detP <- detP[(row.names(detP) %in% row.names(beta)), ]
-
-# write output files to results
-write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
-write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
-# write.csv(detP, paste(baseDir, "/results/data/detP.csv", sep=""))
-
 # convert beta and m-values to matrices for further analysis
 beta <- data.matrix(beta)
 mVal <- data.matrix(mVal)
+
+# write output files to results
+# write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
+# write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
+
+# plot CpGs from run1 vs run2
+# pdf("./results/plots/NC_Means_Scatter_0.15.pdf")
+# par(mfrow=c(1,1))
+# ggplot(beta, aes(x=rowMeansRun1, y=rowMeansRun2)) + geom_point(aes(color = factor(Threshold)))
+# dev.off()
 
 ###################################### find differentially methylated probes using dmpFinder #############################################
 
@@ -125,23 +123,23 @@ write.csv(dmp, paste(baseDir, "/results/data/dmp.csv", sep=""))
 dmp_cont <- dmpFinder(mVal, pheno=targets$mtDNACN, type="continuous", shrinkVar=TRUE)
 write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
 
+# 0.1 threshold
+#            intercept        beta         t         pval       qval
+# cg08899667  2.961253 -0.22516002 -4.566288 0.0005160619 0.00289055
+# cg14575356  2.967531 -0.08631221 -1.944334 0.0735947222 0.09596922
+
+# 0.15 threshold
+#            intercept        beta          t         pval        qval
+# cg26563141 -1.436297  0.04642761  0.6730725 0.5125534647 0.351166497
+# cg08899667  2.961253 -0.22516002 -4.5529936 0.0005264945 0.003006637
+# cg14575356  2.967531 -0.08631221 -1.9369622 0.0745275692 0.098949718
+
 ###################################### find differentially methylated regions using DMRcate  #############################################
 
 # Get knockout and normal groups and batches as factors
 Type <- factor(targets$Group) # knockout or normal
 Batch <- factor(targets$Slide) # run 1 or run 2 based on slide number
 ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6 different samples (3 KO 3 NC)
-
-# # testing which columns are most similar based on correlation with top hits
-# Type <- as.numeric(factor(targets$Group))
-# Batch <- as.numeric(factor(targets$Slide)) # run 1 or run 2 based on slide number
-# ID <- as.numeric(factor(substr(targets$Decode, 1, nchar(targets$Decode)-2))) 
-
-# # replace with CpG site
-# cpg <- beta['cg03670369',]
-# cor(cpg, Batch)
-# cor(cpg, ID)
-# cor(cpg, Type)
 
 # create design matrix differentiating samples, KO or Normal and batch effects
 # using Type and Batch is the best combination to use
@@ -150,7 +148,6 @@ ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6
 # design <- model.matrix(~Batch+ID) #2
 # design <- model.matrix(~Type+ID) #3 some column vector are linearly dependent
 design <- model.matrix(~Type+Batch) #4
-# write.csv(design, paste(baseDir, "/results/data/design.csv", sep=""))
 
 # FIXED
 # annotate the beta values to include info on genomic position etc.
@@ -174,10 +171,11 @@ myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = 
 # using the annotation identify the diferentially methylated regions
 # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
 # use betacutoff of 0.05; removes CpG where beta shift is less than 0.05
-DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) 
+DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) # there are 2256 ranges using this threshold
+# DMRs <- dmrcate(myAnnotation, lambda=1000, C=2) # there are 19445 ranges using this criteria
 rangesDMR <- extractRanges(DMRs, genome = "hg19")
 # removes ranges with mean methylation between groups is less than or equal to 0.01
-rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.01]
+rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.05] # returns 2082 ranges after filtering
 
 # use goregion to find differentially methylated regions
 DMR_sigGO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC", plot.bias=TRUE)
@@ -267,15 +265,16 @@ dev.off()
 # create qqplot using qqman for probe analysis
 library(qqman)
 
-summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont.csv", sep = "")))
-summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp.csv", sep = "")))
-summaryStats<- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = "")))
-# summaryStats <- as.data.frame(read.csv("dmp_cont.csv"))
+# summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont_shrink.csv", sep = "")))
+# summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont.csv", sep = "")))
+# summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp.csv", sep = "")))
+# summaryStats<- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = "")))
+# summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", sep = "")))
 # summaryStats <- as.data.frame(read.csv("Linear_Mixed_Model_lmerResults.csv"))
 
-pdf(paste0("./results/plots/QQ_LMM.pdf"))
+pdf(paste0("./results/plots/QQ_CONT_10.pdf"))
 par(mfrow=c(1,1))
-qq(summaryStats$pvalue)
+qq(summaryStats$pval)
 dev.off()
 
 # create qqplot using qqman for region analysis
@@ -284,3 +283,4 @@ pdf(paste0("./results/plots/QQ_DMR.pdf"))
 par(mfrow=c(1,1))
 qq(rangesDMR$HMFDR)
 dev.off()
+

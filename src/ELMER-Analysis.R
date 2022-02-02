@@ -82,7 +82,7 @@ sig.diff <- get.diff.meth(data = data,
 sig.diff <- sig.diff[order(sig.diff$pvalue),]
 
 sig_cpgs <- as.data.frame(read.csv("dmp_cont.csv"))
-sig_cpgs <- filter(sig_cpgs, pval < 1e-7)
+sig_cpgs <- filter(sig_cpgs, qval < 0.05)
 
 nearGenes <- GetNearGenes(data = data, 
                          probes = sig_cpgs$X, 
@@ -111,7 +111,7 @@ pairs <- get.pair(data = data,
 save.image("ELMER_TFAMKO_INTER.RData")
 
 # pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
-pairs <- read.csv("getPair.ALL.all.pairs.statistic.csv")
+pairs <- read.csv("getPair.ALL_DMP_CONT.all.pairs.statistic.csv")
 pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
@@ -134,65 +134,75 @@ save.image("ELMER_TFAMKO_FINAL.RData")
 
 #########
 
-
+CpG <- "cg12369078"
+gene_id <- c("ZIC2", "ARGLU1", "ANKRD10", "TFPD1")
 scatter.plot(data = data,
-       byPair = list(probe = c("cg00095138"), gene = c("ENSG00000145423")), 
+       byPair = list(probe = c(CpG), gene = gene_id), 
        category = "GroupLabel", save = TRUE, lm_line = TRUE)
 
 #need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
 
 #One probe and all nearby genes
 # cg14557185 most significant
-probes20 <- sig.diff$probe[1:10]
+# probes20 <- sig.diff$probe[1:10]
+probes20 <- sig_cpgs$X[6:20]
 for (probes in probes20) {
   scatter.plot(data = data,
               byProbe = list(probe = c(probes), numFlankingGenes = 40), 
               category = "GroupLabel", 
               lm = TRUE, # Draw linear regression curve
               save = TRUE,
-              dir.out = "../plots") 
+              dir.out = "../plots/ELMER") 
 }
 
+# probe <- sig_cpgs$X[5]
+# scatter.plot(data = data,
+#               byProbe = list(probe = probe, numFlankingGenes = 40), 
+#               category = "GroupLabel", 
+#               lm = TRUE, # Draw linear regression curve
+#               save = TRUE,
+#               dir.out = "../plots/ELMER") 
+
 #schematic plot nearby genes
-schematic.plot(pair = pairs, 
+schematic.plot(pair = pairs2, 
                data = data,
                group.col = "GroupLabel",
-               byProbe = pairs$Probe[1],
+               byProbe = pairs2$Probe[1],
                save = TRUE,
-               dir.out = "../plots")
+               dir.out = "../plots/ELMER")
 
 #schematic plot nearby probes together
 schematic.plot(pair = pairs, 
                data = data,   
                group.col = "GroupLabel", 
-               byGene = pairs$GeneID[1],
+               byGene = pairs2$GeneID[1],
                save = TRUE,
-               dir.out = "../plots")
+               dir.out = "../plots/ELMER")
 
 #TF expression vs. average DNA methylation
 # try this gene GABBR1
 scatter.plot(data = data,
-             byTF = list(TF = c("MAFK", "MAF", "MAFF", "MAFB"),
-                         probe = enriched.motif[[names(enriched.motif)[2]]]), 
+             byTF = list(TF = c("MAFK", "MAF", "MAFF", "MAFB", "MAFG"), # "MAFK", "MAF", "MAFF", "MAFB", "MAFG",,"GATA1", "GATA2", "GATA4", "GATA6"
+                         probe = enriched.motif[[names(enriched.motif)[1]]]), 
              category = "GroupLabel",
              save = TRUE, 
              lm_line = TRUE,
-             dir.out = "../plots")
+             dir.out = "../plots/ELMER")
 
-enrich2 <- read.csv("getMotif.ALL.motif.enrichment.csv", header=T)
+enrich2 <- read.csv("getMotif.ALL_DMP_CONT.motif.enrichment.csv", header=T)
 
 motif.enrichment.plot(motif.enrichment = enrich2, 
                       significant = list(OR = 1.1,lowerOR = 1.1), 
-                      label = "ALL", 
+                      label = "ALL_DMP_CONT", 
                       summary = TRUE,
                       save = TRUE,
-                      dir.out = "../plots")  
+                      dir.out = "../plots/ELMER/")  
 
 heatmapPairs(data = data, 
              group.col = "GroupLabel",
              group1 =  "Experiment",
              group2 = "Control",
-             pairs = pairs,
+             pairs = pairs2,
              filename =  "HeatmapPairs.pdf")
              
 load("getTF.ALL.TFs.with.motif.pvalue.rda")
@@ -200,7 +210,7 @@ motif <- colnames(TF.meth.cor)[1]
 TF.rank.plot(motif.pvalue = TF.meth.cor, 
              motif = motif,
              save = TRUE,
-             dir.out = "../plots") 
+             dir.out = "../plots/ELMER") 
              
              
              

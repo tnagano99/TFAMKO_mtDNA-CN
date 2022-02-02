@@ -15,7 +15,7 @@ colnames(DMS)[16] <- "chr"
 colnames(DMS)[17] <- "start"
 
 
-manhattan<-function(DMS, filename, sig=NULL){
+manhattanraw<-function(DMS, filename, sig=NULL){
 	#require(methylKit)
 
 	#if necessary, get rid of sex chromosomes
@@ -40,8 +40,8 @@ manhattan<-function(DMS, filename, sig=NULL){
 	# lambda<-estlambda(data$P.Value)
 	# cat(paste("Lambda =",lambda,"\n"))
 	##working from metal output###
-	# ymin1= round( max(-log10(data$P.Value))+1)
-	ymin1 = 100
+	ymin1= round( max(-log10(data$P.Value))+1)
+	# ymin1 = 100
 
 	title=c()
 	jpeg(paste("./results/plots/manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
@@ -161,3 +161,32 @@ results <- as.data.frame(results.ranges)
 
 groups <- c(KO="magenta", NC="forestgreen")
 cols <- groups[as.character(type)]
+
+#################################################################3
+# QQ Plot code and checking lambda of p-values
+# QQ Plot for
+qq.chisq(summaryStats$pval)
+
+pvals <- pvaluesCorr
+
+pvals <- summaryStats$pval
+observed <- sort(pvals)
+observed2 <- c(length(pvals))
+#png('qqEPIC.png')
+observed2null <- -(log10(observed2 / (length(observed2)+1)))
+pvals <- c(pvals, observed2null)
+observed <- sort(pvals)
+lobs <- -(log10(observed))
+expected <- c(1:length(observed)) 
+lexp <- -(log10(expected / (length(expected)+1)))
+#creating uniform disn
+m="qqplot"
+pdf(paste0("./results/plots/QQ_DMP_CONT.pdf"))
+par(mfrow=c(1,1))
+plot(c(0,20), c(0,20), col="red", lwd=4, type="l", xlab="Expected (-logP)",
+	ylab="Observed (-logP)", xlim=c(0,7), ylim=c(0,7), las=1, xaxs="i", yaxs="i", bty="l", main=m)
+points(lexp, lobs, pch=23, cex=.5, col="black", bg="black")
+dev.off()
+
+library(QCEWAS)
+P_lambda(pvalsModelA)

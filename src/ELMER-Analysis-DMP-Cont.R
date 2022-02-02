@@ -29,13 +29,17 @@ pairs <- get.pair(data = data,
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL_DMP_CONT", diff.dir="both")
+                      label = "ALL_DMP_CONT_20", diff.dir="both")
+
+save.image("ELMER_TFAMKO_INTER_DMP_CONT_20.RData")
+
+pairs <- read.csv("getPair.ALL_DMP_CONT_20.all.pairs.statistic.csv")
 
 pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
                                      probes = pairs2$Probe, 
-                                     label = "ALL",
+                                     label = "ALL_DMP_CONT_20",
                                      min.incidence = 10,
                                      lower.OR = 1.1,
                                      save = TRUE)
@@ -47,8 +51,8 @@ TF <- get.TFs(data = data,
               mode = "supervised",
               enriched.motif = enriched.motif,
               cores = 1, 
-              label = "ALL", diff.dir="both")
+              label = "ALL_DMP_CONT", diff.dir="both")
 
 
 
-save.image("ELMER_TFAMKO_FINAL_DMP_CONT.RData")
+save.image("ELMER_TFAMKO_FINAL_DMP_CONT_20.RData")
