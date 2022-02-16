@@ -133,7 +133,7 @@ TF <- get.TFs(data = data,
 save.image("ELMER_TFAMKO_FINAL.RData")
 
 #########
-
+# run the below block
 CpG <- "cg12369078"
 gene_id <- c("ZIC2", "ARGLU1", "ANKRD10", "TFPD1")
 scatter.plot(data = data,

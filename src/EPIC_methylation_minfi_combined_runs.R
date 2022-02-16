@@ -13,6 +13,7 @@ library(RColorBrewer)
 library(limma)
 library(DMRcate)
 library(ggplot2)
+library(missMethyl)
 
 # Update baseDir to proper location
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
@@ -116,8 +117,8 @@ mVal <- data.matrix(mVal)
 ###################################### find differentially methylated probes using dmpFinder #############################################
 
 # Find differentially methylated probes using categories of knockout or not
-dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=TRUE)
-write.csv(dmp, paste(baseDir, "/results/data/dmp.csv", sep=""))
+dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=FALSE)
+write.csv(dmp, paste(baseDir, "/results/data/dmp_shrink.csv", sep=""))
 
 # Find differentially methylated probes using mtDNACN as continuous
 dmp_cont <- dmpFinder(mVal, pheno=targets$mtDNACN, type="continuous", shrinkVar=TRUE)
@@ -155,7 +156,8 @@ design <- model.matrix(~Type+Batch) #4
 # https://support.bioconductor.org/p/39385/
 # this is likely due to confounding between Type and ID because the ID gives information on KO or NC for each of the samples individually
 # but Type gives the group of samples which are KO or NC
-myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 0.01)
+myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 1e-7)
+# returns 9110 significant probes using pval < 1e-7
 
 ##### NOTE #####
 # regions are determined by applying gaussian smoothing to the CpG-site test statistics using a given bandwidth set by lambda
@@ -171,21 +173,31 @@ myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = 
 # using the annotation identify the diferentially methylated regions
 # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
 # use betacutoff of 0.05; removes CpG where beta shift is less than 0.05
+
+# for (i in seq(5, 30, 5)){
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) # there are 2256 ranges using this threshold
-# DMRs <- dmrcate(myAnnotation, lambda=1000, C=2) # there are 19445 ranges using this criteria
-rangesDMR <- extractRanges(DMRs, genome = "hg19")
+DMRs <- dmrcate(myAnnotation, lambda=1000, C=2) # 106722 DMRs there are 19445 ranges using this criteria
+rangesDMR <- extractRanges(DMRs, genome = "hg19") 
 # removes ranges with mean methylation between groups is less than or equal to 0.01
 rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.05] # returns 2082 ranges after filtering
+
+rng <- as.data.frame(rangesDMR)
+rng <- rng[, c("seqnames", "start", "end", "width", "no.cpgs", "Fisher", "overlapping.genes")]
+write.csv(rng, paste(baseDir, "/results/data/DMRS_anno.csv", sep=""))
+# write.csv(rangesDMR, paste(baseDir, "/results/data/DMRcate_", i, ".csv", sep=""))
+# rangesDMR <- as.data.frame(rangesDMR)
+# mean(rangesDMR[,"no.cpgs"])
 
 # use goregion to find differentially methylated regions
 DMR_sigGO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC", plot.bias=TRUE)
 DMR_sigGO <- DMR_sigGO %>% arrange(P.DE)
-write.csv(DMR_sigGO, paste(baseDir, "/results/data/GO_DMRcate.csv", sep=""))
+write.csv(DMR_sigGO, paste(baseDir, "/results/data/GO_DMRcate_pval.csv", sep=""))
 
 DMR_sigKEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC", plot.bias=TRUE)
 DMR_sigKEGG <- DMR_sigKEGG %>% arrange(P.DE)
 # note neuroactive ligand-receptor interaction is top hit for DMR using KEGG
-write.csv(DMR_sigKEGG, paste(baseDir, "/results/data/KEGG_DMRcate.csv", sep=""))
+write.csv(DMR_sigKEGG, paste(baseDir, "/results/data/KEGG_DMRcate_pval.csv", sep=""))
+# }
 
 # Convert to data frame for Manhattan plot
 rangesDMR <- as.data.frame(rangesDMR)
@@ -240,7 +252,7 @@ groups <- c(Knockout="magenta", Normal="forestgreen")
 cols <- groups[as.character(targets$Group)]
 
 for (i in 1:10) {
-	pdf(paste0("./results/plots/DMR_", i, ".pdf"))
+	pdf(paste0("./results/plots/DMR_", i, "_10e-4.pdf"))
 	par(mfrow=c(1,1))
 	DMR.plot(ranges=rangesDMR, dmr=i, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
 	dev.off()
@@ -267,12 +279,12 @@ library(qqman)
 
 # summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont_shrink.csv", sep = "")))
 # summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont.csv", sep = "")))
-# summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp.csv", sep = "")))
-# summaryStats<- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = "")))
+# summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_shrink.csv", sep = "")))
+summaryStats<- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults_Categorical.csv", sep = "")))
 # summaryStats <- as.data.frame(read.csv(paste(baseDir, "/results/data/SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", sep = "")))
 # summaryStats <- as.data.frame(read.csv("Linear_Mixed_Model_lmerResults.csv"))
 
-pdf(paste0("./results/plots/QQ_CONT_10.pdf"))
+pdf(paste0("./results/plots/QQ_LMM_Cat.pdf"))
 par(mfrow=c(1,1))
 qq(summaryStats$pval)
 dev.off()

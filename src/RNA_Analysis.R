@@ -26,7 +26,7 @@ library(dplyr)
 ############################################################################################
 
 setwd("results/data")
-df <- read.csv("SleuthWaldTestResults.csv", header=T) # wald test results
+# df <- read.csv("SleuthWaldTestResults.csv", header=T) # wald test results
 df <- read.csv("SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
 names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
 
@@ -39,7 +39,7 @@ genes <- getBM(
 
 # merge data with entrez gene ids
 df_anno <- merge(df, genes, by = "ensembl_gene_id")
-df_sig <- filter(df_anno, pval < 5e-8)
+df_sig <- filter(df_anno, pval < 3.59e-6) # 3.590149e-06
 # df_sig <- filter(df_anno, qval < 0.05)
 df_sig <- df_sig[!is.na(df_sig$entrezgene_id),]
 sig_genes <- df_sig$entrezgene_id
@@ -47,9 +47,9 @@ sig_genes <- df_sig$entrezgene_id
 go_rna <- goana(sig_genes, universe = genes$entrezgene_id)
 go_rna <- go_rna %>% arrange(P.DE)
 go_rna$GO_label <- rownames(go_rna)
-write.csv(go_rna, "GO_RNA_Wald_Q.csv")
+write.csv(go_rna, "GO_RNA_LRT.csv")
 
 kegg_rna <- kegga(sig_genes, universe = genes$entrezgene_id)
 kegg_rna <- kegg_rna %>% arrange(P.DE)
 kegg_rna$KEGG_label <- rownames(kegg_rna)
-write.csv(kegg_rna, "KEGG_RNA_Wald_Q.csv")
+write.csv(kegg_rna, "KEGG_RNA_LRT.csv")

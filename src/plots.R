@@ -13,7 +13,7 @@ annotate <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 # create manhattan plot
 # swap lmerResults and pval/pvalue depending on file
 # lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = ""))) 
-# lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont_shrink.csv", sep = ""))) 
+lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont_10.csv", sep = ""))) 
 merged <- merge(lmerResults, annotate, by.x="X", by.y="Name")
 
 colnames(merged)[colnames(merged) == "Estimate.mtDNACN"] <- "estimate"
@@ -21,12 +21,13 @@ colnames(merged)[colnames(merged) == "Estimate.mtDNACN"] <- "estimate"
 colnames(merged)[colnames(merged) == "pval"] <- "P.Value" # for dmpfinder using mtDNA-CN as continuous
 colnames(merged)[colnames(merged) == "pos"] <- "start"
 
-manhattanraw(DMS=merged, filename="DMP_Shrink", sig=7.3)
+manhattanraw(DMS=merged, filename="DMP_10", sig=7.3)
 
 # Manhattan plot for RNA data
 lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", sep = "")))
 colnames(lmerResults)[colnames(lmerResults) == "pval"] <- "P.Value" # for dmpfinder using mtDNA-CN as continuous
 manhattanraw(DMS=lmerResults, filename="RNA", sig=7.3)
+
 # gsub("chr","",merged$chr)
 # merged<-subset(merged, (merged$chr!="0"))
 # merged<-subset(merged, (merged$start!="NA"))
