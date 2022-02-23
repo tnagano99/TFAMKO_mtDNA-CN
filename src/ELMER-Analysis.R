@@ -112,6 +112,8 @@ save.image("ELMER_TFAMKO_INTER.RData")
 
 # pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
 pairs <- read.csv("getPair.ALL_DMP_CONT.all.pairs.statistic.csv")
+pairs <- read.csv("getPair.ALL_DMP_CONT.pairs.significant.csv")
+pairs <- read.csv("getPair.ALL_DMP_CONT.pairs.statistic.with.empirical.pvalue.csv")
 pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
@@ -134,21 +136,21 @@ save.image("ELMER_TFAMKO_FINAL.RData")
 
 #########
 # run the below block
-CpG <- "cg12369078"
-gene_id <- c("ZIC2", "ARGLU1", "ANKRD10", "TFPD1")
+CpG <- "cg05164933"
+gene_id <- c("ENSG00000145423")
 scatter.plot(data = data,
        byPair = list(probe = c(CpG), gene = gene_id), 
-       category = "GroupLabel", save = TRUE, lm_line = TRUE)
+       category = "GroupLabel", save = TRUE, lm_line = TRUE, dir.out = "./results/plots/ELMER")
 
 #need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
 
 #One probe and all nearby genes
 # cg14557185 most significant
 # probes20 <- sig.diff$probe[1:10]
-probes20 <- sig_cpgs$X[6:20]
+probes20 <- sig_cpgs$X[1:20]
 for (probes in probes20) {
   scatter.plot(data = data,
-              byProbe = list(probe = c(probes), numFlankingGenes = 40), 
+              byProbe = list(probe = c(probes), numFlankingGenes = 20), 
               category = "GroupLabel", 
               lm = TRUE, # Draw linear regression curve
               save = TRUE,

@@ -117,23 +117,13 @@ mVal <- data.matrix(mVal)
 ###################################### find differentially methylated probes using dmpFinder #############################################
 
 # Find differentially methylated probes using categories of knockout or not
-dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=FALSE)
-write.csv(dmp, paste(baseDir, "/results/data/dmp_shrink.csv", sep=""))
+# not used below
+# dmp <- dmpFinder(mVal, pheno=targets$Group, type="categorical", shrinkVar=FALSE)
+# write.csv(dmp, paste(baseDir, "/results/data/dmp_shrink.csv", sep=""))
 
 # Find differentially methylated probes using mtDNACN as continuous
 dmp_cont <- dmpFinder(mVal, pheno=targets$mtDNACN, type="continuous", shrinkVar=TRUE)
 write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
-
-# 0.1 threshold
-#            intercept        beta         t         pval       qval
-# cg08899667  2.961253 -0.22516002 -4.566288 0.0005160619 0.00289055
-# cg14575356  2.967531 -0.08631221 -1.944334 0.0735947222 0.09596922
-
-# 0.15 threshold
-#            intercept        beta          t         pval        qval
-# cg26563141 -1.436297  0.04642761  0.6730725 0.5125534647 0.351166497
-# cg08899667  2.961253 -0.22516002 -4.5529936 0.0005264945 0.003006637
-# cg14575356  2.967531 -0.08631221 -1.9369622 0.0745275692 0.098949718
 
 ###################################### find differentially methylated regions using DMRcate  #############################################
 
@@ -141,14 +131,7 @@ write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
 Type <- factor(targets$Group) # knockout or normal
 Batch <- factor(targets$Slide) # run 1 or run 2 based on slide number
 ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6 different samples (3 KO 3 NC)
-
-# create design matrix differentiating samples, KO or Normal and batch effects
-# using Type and Batch is the best combination to use
-# look at notes at bottom of script for correlation between top CpGs and Batch/ID
-# design <- model.matrix(~Type+Batch+ID) #1 some column vectors are linearly dependent
-# design <- model.matrix(~Batch+ID) #2
-# design <- model.matrix(~Type+ID) #3 some column vector are linearly dependent
-design <- model.matrix(~Type+Batch) #4
+design <- model.matrix(~Type+Batch) # specify design matrix Type and ID and linearly dependent so using Type and Batch as predictors explanation is below
 
 # FIXED
 # annotate the beta values to include info on genomic position etc.
@@ -156,6 +139,8 @@ design <- model.matrix(~Type+Batch) #4
 # https://support.bioconductor.org/p/39385/
 # this is likely due to confounding between Type and ID because the ID gives information on KO or NC for each of the samples individually
 # but Type gives the group of samples which are KO or NC
+#### NOTE ### adjusted cpg.annotate function source code to use p-value instead of fdr (parameter still says fdr btw) 
+# code is in code_snippets.R copy and run the code before running below line
 myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 1e-7)
 # returns 9110 significant probes using pval < 1e-7
 
@@ -169,21 +154,23 @@ myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = 
 # Stouffer: Stouffer summary transform of the individual CpG FDRs.
 # HMFDR: Harmonic mean of the individual CpG FDRs.
 # Fisher: Fisher combined probability transform of the individual CpG FDRs.
-
 # using the annotation identify the diferentially methylated regions
 # automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
 # use betacutoff of 0.05; removes CpG where beta shift is less than 0.05
 
 # for (i in seq(5, 30, 5)){
-DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) # there are 2256 ranges using this threshold
-DMRs <- dmrcate(myAnnotation, lambda=1000, C=2) # 106722 DMRs there are 19445 ranges using this criteria
+DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) # # fdr is 1 using same cutoffs get 4259 regions
+# DMRs1 <- dmrcate(myAnnotation1, lambda=1000, C=2) # 106722 DMRs if fdr is 1 without cutoffs
 rangesDMR <- extractRanges(DMRs, genome = "hg19") 
 # removes ranges with mean methylation between groups is less than or equal to 0.01
-rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.05] # returns 2082 ranges after filtering
+rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.05]
+# rangesDMR <- rangesDMR[rangesDMR$Fisher < 1.17e-5]
+rangesDMR <- as.data.frame(rangesDMR)
 
-rng <- as.data.frame(rangesDMR)
-rng <- rng[, c("seqnames", "start", "end", "width", "no.cpgs", "Fisher", "overlapping.genes")]
-write.csv(rng, paste(baseDir, "/results/data/DMRS_anno.csv", sep=""))
+# filter out regions falling below bonferonni correction 0.05 / 4259 = 1.17e-5
+rangesDMR <- filter(rangesDMR, Fisher < 1.17e-5) # 1.17e-5
+
+write.csv(rangesDMR, paste(baseDir, "/results/data/DMRS_anno.csv", sep=""))
 # write.csv(rangesDMR, paste(baseDir, "/results/data/DMRcate_", i, ".csv", sep=""))
 # rangesDMR <- as.data.frame(rangesDMR)
 # mean(rangesDMR[,"no.cpgs"])

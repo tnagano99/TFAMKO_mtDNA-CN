@@ -1,11 +1,3 @@
-# if need to install packages
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
-BiocManager::install("minfi")
-BiocManager::install("missMethyl")
-
 library(data.table)
 library(dplyr)
 library(tidyr)
@@ -14,6 +6,7 @@ library(minfi)
 library(missMethyl)
 library(pathview)
 library(biomaRt)
+library("org.Hs.eg.db")
 # library(qqman)
 # library(limma)
 
@@ -73,18 +66,26 @@ genes <- getBM(
 
 df_anno <- merge(expanded, genes, by = "ensembl_gene_id")
 
-pathways <- pathview(gene.data = expanded$ensembl_gene_id, pathway.id = "04727", species = "hsa", gene.idtype="ENSEMBLTRANS") # 04080 Neuro 04727 GABA synapse
+pathways <- pathview(gene.data = expanded$ensembl_gene_id, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBLTRANS") # 04080 Neuro 04727 GABA synapse 05033 nicotine
 
-setwd("results/data")
 # differentially expressed genes
 df <- read.csv("SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
 names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
 
 df <- filter(df, pval < 3.59e-6)
-pathways <- pathview(gene.data = df$ensembl_gene_id, pathway.id = "04727", species = "hsa", gene.idtype="ENSEMBL", out.suffix = "RNA")
+pathways <- pathview(gene.data = df$ensembl_gene_id, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBL", out.suffix = "RNA")
 
 # differentially methylated region
-df <- read.csv("DMRS_anno.csv", header=T) # Likelihood test results
-df <- separate_rows(df, overlapping.genes, sep=", ", convert = TRUE)
+df1 <- read.csv("DMRS_anno.csv", header=T) # DMRcate results
+df1 <- separate_rows(df1, overlapping.genes, sep=", ", convert = TRUE)
+pathways <- pathview(gene.data = df1$overlapping.genes, pathway.id = "05033", species = "hsa", gene.idtype="SYMBOL", out.suffix = "DMR")
 
-pathways <- pathview(gene.data = df$overlapping.genes, pathway.id = "04080", species = "hsa", gene.idtype="SYMBOL", out.suffix = "DMR")
+df1$ENSEMBL <- mapIds(org.Hs.eg.db, as.character(df1$overlapping.genes), "ENSEMBL", "SYMBOL")
+df1 <- as.data.frame(df1)
+pathways <- pathview(gene.data = df1$ENSEMBL, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBL", out.suffix = "DMR")
+
+#Extract genes for KEGG
+z <- getMappedEntrezIDs(sigCpGs, allCpGs, array.type="EPIC")
+keggs <- select(org.Hs.eg.db, z[[1]], "PATH")
+firstkeggs <- subset(keggs, PATH %in% "04080")
+firstkeggs$SYMBOL <- mapIds(org.Hs.eg.db, as.character(firstkeggs$ENTREZID), "SYMBOL","ENTREZID")
