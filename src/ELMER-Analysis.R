@@ -8,9 +8,12 @@ library(ELMER)
 library(MultiAssayExperiment)
 library(data.table)
 library(dplyr)
+library(biomaRt)
+library(sesameData)
 
 # setwd("/dcs01/arking/arkinglab/active/projects/aric/epigenetics/ccastell/EPIC/Data/EPICRerun/")
-setwd("../results/data")
+# setwd("../results/data")
+setwd("results/data")
 #Methylation for trusted probes (mean <0.2 between plates)
 #Setup for ttest method using 0.2 dataset (least stringent of the three options seems to show the most biology)
 
@@ -34,6 +37,23 @@ RNA$TPM05 <- rowSums(RNA<0.5)
 RNA <- subset(RNA, RNA$TPM05 < 7)
 RNA$TPM05 <- NULL
 
+# read in RNA-Seq analysis results to get significant genes
+df <- read.csv("SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
+names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
+
+# use biomaRt to find mapping info between ensembl and entrez gene IDS
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
+genes <- getBM(
+  attributes=c("ensembl_gene_id", "entrezgene_id"),
+  mart=mart,
+  useCache = FALSE)
+
+# merge data with entrez gene ids
+df_anno <- merge(df, genes, by = "ensembl_gene_id")
+df_sig <- filter(df_anno, pval < 3.59e-6) # 3.590149e-06
+
+# filter RNA by significant genes
+RNA <- subset(RNA, rownames(RNA) %in% df_sig$ensembl_gene_id)
 
 primary <- colnames(RNA)
 GroupLabel <- c("Experiment", "Control", "Experiment", "Control", "Experiment", "Control", "Control", "Control", "Control", "Experiment", "Experiment", "Experiment")
@@ -41,6 +61,7 @@ Sample <- cbind(primary, GroupLabel)
 Sample <- as.data.frame(Sample)
 row.names(Sample) <- Sample$primary
 
+sesameDataCache("EPIC.hg19.manifest")
 data <- createMAE(exp = RNA, 
                   met = EPIC,
                   met.platform = "EPIC",
@@ -77,16 +98,16 @@ sig.diff <- get.diff.meth(data = data,
 #o Min number of samples per group in each comparison: 5
 #o Nb of samples group1 in each comparison: 6
 #o Nb of samples group2 in each comparison: 6
-#71441 results
+#81441 results
 
 sig.diff <- sig.diff[order(sig.diff$pvalue),]
 
 sig_cpgs <- as.data.frame(read.csv("dmp_cont.csv"))
-sig_cpgs <- filter(sig_cpgs, qval < 0.05)
+sig_cpgs <- filter(sig_cpgs, pval < 1e-7)
 
 nearGenes <- GetNearGenes(data = data, 
                          probes = sig_cpgs$X, 
-                         numFlankingGenes = 40)
+                         numFlankingGenes = 20)
 
 # nearGenes <- GetNearGenes(data = data, 
 #                          probes = sig.diff$probe, 
@@ -106,19 +127,17 @@ pairs <- get.pair(data = data,
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL_DMP_CONT", diff.dir="both")
+                      label = "ALL_DMP_CONT_SIG", diff.dir="both")
 
-save.image("ELMER_TFAMKO_INTER.RData")
+save.image("ELMER_TFAMKO_INTER_SIG.RData")
 
 # pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
-pairs <- read.csv("getPair.ALL_DMP_CONT.all.pairs.statistic.csv")
-pairs <- read.csv("getPair.ALL_DMP_CONT.pairs.significant.csv")
-pairs <- read.csv("getPair.ALL_DMP_CONT.pairs.statistic.with.empirical.pvalue.csv")
+pairs <- read.csv("getPair.ALL_DMP_CONT_SIG.all.pairs.statistic.csv")
 pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
                                      probes = pairs2$Probe, 
-                                     label = "ALL",
+                                     label = "ALL_SIG",
                                      min.incidence = 10,
                                      lower.OR = 1.1,
                                      save = TRUE)
@@ -130,9 +149,9 @@ TF <- get.TFs(data = data,
               mode = "supervised",
               enriched.motif = enriched.motif,
               cores = 1, 
-              label = "ALL", diff.dir="both")
+              label = "ALL_SIG", diff.dir="both")
 
-save.image("ELMER_TFAMKO_FINAL.RData")
+save.image("ELMER_TFAMKO_FINAL_SIG.RData")
 
 #########
 # run the below block

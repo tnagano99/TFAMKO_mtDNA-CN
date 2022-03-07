@@ -105,8 +105,8 @@ beta <- data.matrix(beta)
 mVal <- data.matrix(mVal)
 
 # write output files to results
-# write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
-# write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
+write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
+write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
 
 # plot CpGs from run1 vs run2
 # pdf("./results/plots/NC_Means_Scatter_0.15.pdf")
@@ -164,13 +164,10 @@ DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05
 rangesDMR <- extractRanges(DMRs, genome = "hg19") 
 # removes ranges with mean methylation between groups is less than or equal to 0.01
 rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.05]
-# rangesDMR <- rangesDMR[rangesDMR$Fisher < 1.17e-5]
-rangesDMR <- as.data.frame(rangesDMR)
+rangesDMR <- rangesDMR[rangesDMR$Fisher < 1.17e-5] # filter out regions falling below bonferonni correction 0.05 / 4259 = 1.17e-5
 
-# filter out regions falling below bonferonni correction 0.05 / 4259 = 1.17e-5
-rangesDMR <- filter(rangesDMR, Fisher < 1.17e-5) # 1.17e-5
-
-write.csv(rangesDMR, paste(baseDir, "/results/data/DMRS_anno.csv", sep=""))
+# rangesDMR <- as.data.frame(rangesDMR)
+# write.csv(rangesDMR, paste(baseDir, "/results/data/DMRS_anno.csv", sep=""))
 # write.csv(rangesDMR, paste(baseDir, "/results/data/DMRcate_", i, ".csv", sep=""))
 # rangesDMR <- as.data.frame(rangesDMR)
 # mean(rangesDMR[,"no.cpgs"])
@@ -248,7 +245,7 @@ for (i in 1:10) {
 # plot CpG beta values against mtDNA-CN
 # using top CpGs from dmpFinder analysis using mtDNA-CN as continuous variable
 CpGs <- rownames(dmp_cont)[1:20] 
-CpG <- CpGs[20]
+CpG <- CpGs[2]
 CpG_beta <- as.vector(beta[CpG,])
 mtDNACN <- targets$mtDNACN
 df <- data.frame(CpG_beta, mtDNACN)
@@ -258,7 +255,7 @@ values <- coef(lm(formula = CpG_beta ~ mtDNACN, data = df))
 
 pdf(paste0("./results/plots/mtDNACN-", CpG, ".pdf"))
 par(mfrow=c(1,1))
-ggplot(df, aes(x=mtDNACN, y=CpG_beta)) + geom_point(aes(color = Type)) + geom_abline(intercept = values[1], slope = values[2])
+ggplot(df, aes(x=mtDNACN, y=CpG_beta)) + geom_point(aes(color = Type)) + geom_abline(intercept = values[1], slope = values[2]) + ylab(CpG)
 dev.off()
 
 # create qqplot using qqman for probe analysis
