@@ -16,7 +16,10 @@ colnames(DMS)[17] <- "start"
 
 
 manhattanraw<-function(DMS, filename, sig=NULL){
-	#require(methylKit)
+	# DMS needs to be a dataframe with columns 
+  # P.Value: the p-values of the differentially methylated sites
+  # chr: the chromosome the CpG site is on
+  # start: the position on the chromosome of the CpG site
 
 	#if necessary, get rid of sex chromosomes
 	data<-DMS
@@ -25,35 +28,38 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 	data<-subset(data, (data$chr!="X"))
 	data<-subset(data, (data$chr!="Y"))
 
-
 	data$chr <- gsub("chr","",data$chr)
 	data$chr <- as.numeric(data$chr)
 	data2 <- data[order(data$chr),]
 	data=data2
-	#data2$meth.diff <-
-	#cex.val <- 0.8 - ((abs(data[,"mean.meth.diff"]) < 5 )*.5) +
-	#((abs(data[,"mean.meth.diff"]) > 20)*.7)
-	#data$cex.val<-cex.val
 
-	# library(GenABEL)
-	# z.sq<-(data$Effect / data$StdErr)^2
-	# lambda<-estlambda(data$P.Value)
-	# cat(paste("Lambda =",lambda,"\n"))
-	##working from metal output###
+	# set the max value needed for the Manhattan plot
 	ymin1= round( max(-log10(data$P.Value))+1)
-	# ymin1 = 100
 
+  # set the title for the plot
 	title=c()
+
+  # initialize the jpeg file to create the plot
 	jpeg(paste("./results/plots/manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
-	chr <- c(1:22)
-	#Summary statistics
+	
+  # initialize x-axis scale
+  chr <- c(1:22)
+
+	# set the position using start
 	data$position<-round(data$start,digits=0)
-	#print(summary(data))
 	print(table(data$chr))
+
+  # set the margins for the plot
 	par(mar=c(5,5,2,2))
+
+  # find the cutoff points for chromosomes
 	phy.max<-tapply(data$start, data$chr,max,na.rm=T)
 	cumlen=0
+
+  # remove values without chromsome specified
 	data <- data[!is.na(data$chr),]
+
+  # determine actual position for CpGs using median
 	for(i in chr){
 		cat(paste("Now working on chromosome ",i,"\r"))
 		data[data$chr==i,"loc"]<-data[data$chr==i,"position"]+cumlen
@@ -61,27 +67,36 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 	}
 	phy.med<-tapply(data$loc,data$chr,median,na.rm=T)[chr]
 	print(phy.med)
+
+  # convert p-values to -log10 transform
 	data$mlgpval<- -log(data[,"P.Value"], base=10)
-	plot(data[,"loc"],data[,"mlgpval"],type="n",yaxt="n",xaxt="n",
+
+  # specify the plot parameters loc is the chromosome and mlgpval is the log10 p-value
+	plot(data[,"loc"], data[,"mlgpval"],
+    type="n",yaxt="n",xaxt="n",
+    main=title,
 		xlab="chromosome",
-		ylab=expression(-log[10]*P),main=title,
-		xlim=c(0,max(data$loc + 1,na.rm=T)),cex.lab=1.5,ylim=c(0,ymin1))
-		col=ifelse(data$mlgpval< 10, (rep(c("black","gray48"),13)), "red" )
-	axis(side=2, at=seq(from=0,to=ymin1,by=2), labels=seq(from=0,to=ymin1,by=2),
-		tick=T,cex.axis=0.9,las=1)
-	axis(side=1, at=phy.med[c(1:22)], labels=c(1:22), cex.axis=0.9)
-		#cex.axis=0.8 instead of cex.axis=1.2
-	#axis(side=1, at=phy.med[c(20:23)], labels=chr[c(20:23)],
-	#	tick=T,cex.axis=1,las=1)
+		ylab=expression(-log[10]*P),
+		xlim=c(0,max(data$loc + 1,na.rm=T)),cex.lab=1.5,ylim=c(0,ymin1)
+		col=ifelse(data$mlgpval< sig, (rep(c("black","gray48"),13)), "red" ))
+
+  # set y axis labels and scale
+	axis(side=2, at=seq(from=0,to=ymin1,by=2), labels=seq(from=0,to=ymin1,by=2), tick=T, cex.axis=0.9, las=1)
+
+  # set x axis labels and scale
+	axis(side=1, at=phy.med[c(1:22)], labels=c(1:22), cex.axis=0.8)
+
+  # fill margins with white rectangles
 	rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
 		col = "white")
+
+  # output to console for updates
 	for(i in chr){
 		cat(paste("Now working on chromosome ",i,"\r"))
-		#if(data$mlgpval > 7) col="blue" else col="red"
 		points(data[data$chr==i,"loc"],data[data$chr==i,"mlgpval"],
-			col=ifelse(data[data$chr==i,"mlgpval"] > sig, "red", col[i]),pch=20) #,cex=data[data$chr==i,"cex.val"])
-		#,cex = data[data$chr==i,"cex.val"]
+			col=ifelse(data[data$chr==i,"mlgpval"] > sig, "red", col[i]),pch=20)
 	}
+
 	# add in line for significance
 	if (is.null(sig)==FALSE){
 		abline(h=sig,lty="dotted",lwd=2,col="chartreuse4")
@@ -89,96 +104,20 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 
 	dev.off()
 }
-################
 
-manhattan(DMS=DMS, filename="CCForPublicationEPIC", sig=7.3)
-
-###############################################################
-
-# code to run a linear model for each probe
-
-library(lme4)
-## Define the lm function
-runlme <- function(thisdat) {
-   lme1 <- eval(parse(text=expression));    
-   ##Get the summary of the model
-   smodel = summary(lme1);
-   return(smodel)
- }
-
-varnames <- c("mtDNACN")
-Bmat <- SEmat <- Tmat <- matrix(NA,nrow=nrow(EPICTFAMKO),ncol=1)
-rownames(Bmat) <- rownames(SEmat) <- rownames(Tmat) <- rownames(EPICTFAMKO)
-colnames(Bmat) <- paste("Estimate",varnames,sep=".")
-colnames(SEmat) <- paste("Std.Error",varnames,sep=".")
-colnames(Tmat) <- paste("t-value",varnames,sep=".")
-
-for (i in 1:nrow(EPICTFAMKO)) { 
-if (i %% 1000 == 0) {cat(paste("On probe ",i,"\n",sep=""))} #outputs every 1000 probes just to check in
-thisExpr <- as.numeric(EPICTFAMKO[i,])
-expression <- "lmer(thisExpr~mtDNACN + (1|Batch)+(1|ID), na.action=na.exclude, control = lmerControl(calc.derivs = FALSE), REML=FALSE)"
-
-designmatrix <- data.frame(thisExpr, mtDNACN, Batch, ID)
-lme1.out <- try(runlme(designmatrix),silent=F);
-
-if (substr(lme1.out[1],1,5)!="Error") {
-tabOut <- lme1.out$coefficients
-Bmat[i,] <- tabOut[2,"Estimate"]
-SEmat[i,] <- tabOut[2,"Std. Error"]
-Tmat[i,] <- tabOut[2,"t value"]
-  } else {
-    cat('Error in LME of Probe',rownames(EPICTFAMKO)[i],"id",'\n')
-    cat('Setting P-value=NA,Beta value=NA, and =NA\n');
-    Bmat[i,] <- SEmat[i,] <- Tmat[i,] <- NA;
-  }
-}
-
-warnings()
-
-FinalResults <- cbind(Bmat, SEmat, Tmat)
-FinalResults <- as.data.frame(FinalResults)
-zscores <- FinalResults[,3]
-pvalue <- pchisq(zscores**2,1,lower.tail=F)
-min(pvalue)
-FinalResults2 <- cbind(FinalResults,pvalue)
-
-write.csv(FinalResults2,"EPIClmerResults.csv", quote=F)
-
-###################################################################
-
-# code to find differentially methylated regions
-
-library(DMRcate)
-
-type <- factor(covariates$Line)
-design <- model.matrix(~type+Batch+ID)
-myannotation <- cpg.annotate("array", EPICTFAMKO, arraytype="EPIC", analysis.type="differential", design=design, coef=2, what="Beta", fdr=0.01)
-
-dmrcoutput <- dmrcate(myannotation, lambda=1000, C=2, min.cpgs=10)
-
-results.ranges <- extractRanges(dmrcoutput, genome = "hg19")
-results <- as.data.frame(results.ranges)
-
-groups <- c(KO="magenta", NC="forestgreen")
-cols <- groups[as.character(type)]
-
-######################### QQ Plot code and checking lambda of p-values ###################################
+######################### QQ Plot code ###################################
 
 qq.chisq(summaryStats$pval)
-
-pvals <- pvaluesCorr
-
 pvals <- summaryStats$pval
 observed <- sort(pvals)
 observed2 <- c(length(pvals))
-#png('qqEPIC.png')
 observed2null <- -(log10(observed2 / (length(observed2)+1)))
 pvals <- c(pvals, observed2null)
 observed <- sort(pvals)
 lobs <- -(log10(observed))
 expected <- c(1:length(observed)) 
 lexp <- -(log10(expected / (length(expected)+1)))
-#creating uniform disn
+# creating uniform distribution
 m="qqplot"
 pdf(paste0("./results/plots/QQ_DMP_CONT.pdf"))
 par(mfrow=c(1,1))
@@ -187,35 +126,17 @@ plot(c(0,20), c(0,20), col="red", lwd=4, type="l", xlab="Expected (-logP)",
 points(lexp, lobs, pch=23, cex=.5, col="black", bg="black")
 dev.off()
 
+################ code to check lambda value of p-values ###################
 library(QCEWAS)
-P_lambda(pvalsModelA)
-
-################################### create nice charts of data
-
-library(magrittr)
-library(kableExtra)
-library("magick")
-library("webshot")
-
-setwd("/dcs04/legacy-dcs01-arking/arkinglab/active/projects/aric/epigenetics/ccastell/MESA")
-topKEGG$P.DE <- format(as.numeric(topKEGG$P.DE), digits=3, scientific=T)
-topGO$P.DE <- format(as.numeric(topGO$P.DE), digits=3, scientific=T)
-topKEGG$DE <- round(topKEGG$DE, digits=0)
-topKEGG$DE <- as.integer(topKEGG$DE)
-options(width = 160)
-
-kable(topKEGG[1:10,], caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopKEGG_WGSV1.png")
-
-kable(topGO[1:10,], caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopGO_WGSV1.png")
+P_lambda(pvalsModelA) # replace with vector of p-values
 
 ######################### DMRcate cpg.annotate ###########################################
+# updated to use the p-value instead of FDR value
+# run the block of code from lines 137 to 277 for DMR analysis before calling cpg.annotate in EPIC_methylation_minfi_combined_runs.R
 
-
-cpg.annotate <- function (datatype = c("array", "sequencing"), object, what = c("Beta", 
-                                                                "M"), arraytype = c("EPIC", "450K"), analysis.type = c("differential", 
-                                                                                                                       "variability", "ANOVA", "diffVar"), design, contrasts = FALSE, 
-          cont.matrix = NULL, fdr = 0.05, coef, 
-          varFitcoef=NULL, topVarcoef=NULL, ...) 
+cpg.annotate <- function (datatype = c("array", "sequencing"), object, what = c("Beta", "M"), 
+          arraytype = c("EPIC", "450K"), analysis.type = c("differential", "variability", "ANOVA", "diffVar"),
+          design, contrasts = FALSE, cont.matrix = NULL, fdr = 0.05, coef, varFitcoef=NULL, topVarcoef=NULL, ...) 
 {
   analysis.type <- match.arg(analysis.type)
   what <- match.arg(what)
@@ -354,3 +275,57 @@ cpg.annotate <- function (datatype = c("array", "sequencing"), object, what = c(
     message("Error: datatype must be one of 'array' or 'sequencing'")
   }
 }
+
+########################## Linear Mixed Model code #####################################
+
+########## NOTE: below code is not used in project #####################
+# code to run a linear model for each probe
+
+library(lme4)
+## Define the lm function
+runlme <- function(thisdat) {
+   lme1 <- eval(parse(text=expression));    
+   ##Get the summary of the model
+   smodel = summary(lme1);
+   return(smodel)
+ }
+
+varnames <- c("mtDNACN")
+Bmat <- SEmat <- Tmat <- matrix(NA,nrow=nrow(EPICTFAMKO),ncol=1)
+rownames(Bmat) <- rownames(SEmat) <- rownames(Tmat) <- rownames(EPICTFAMKO)
+colnames(Bmat) <- paste("Estimate",varnames,sep=".")
+colnames(SEmat) <- paste("Std.Error",varnames,sep=".")
+colnames(Tmat) <- paste("t-value",varnames,sep=".")
+
+for (i in 1:nrow(EPICTFAMKO)) { 
+if (i %% 1000 == 0) {cat(paste("On probe ",i,"\n",sep=""))} #outputs every 1000 probes just to check in
+thisExpr <- as.numeric(EPICTFAMKO[i,])
+expression <- "lmer(thisExpr~mtDNACN + (1|Batch)+(1|ID), na.action=na.exclude, control = lmerControl(calc.derivs = FALSE), REML=FALSE)"
+
+designmatrix <- data.frame(thisExpr, mtDNACN, Batch, ID)
+lme1.out <- try(runlme(designmatrix),silent=F);
+
+if (substr(lme1.out[1],1,5)!="Error") {
+tabOut <- lme1.out$coefficients
+Bmat[i,] <- tabOut[2,"Estimate"]
+SEmat[i,] <- tabOut[2,"Std. Error"]
+Tmat[i,] <- tabOut[2,"t value"]
+  } else {
+    cat('Error in LME of Probe',rownames(EPICTFAMKO)[i],"id",'\n')
+    cat('Setting P-value=NA,Beta value=NA, and =NA\n');
+    Bmat[i,] <- SEmat[i,] <- Tmat[i,] <- NA;
+  }
+}
+
+warnings()
+
+FinalResults <- cbind(Bmat, SEmat, Tmat)
+FinalResults <- as.data.frame(FinalResults)
+zscores <- FinalResults[,3]
+pvalue <- pchisq(zscores**2,1,lower.tail=F)
+min(pvalue)
+FinalResults2 <- cbind(FinalResults,pvalue)
+
+write.csv(FinalResults2,"EPIClmerResults.csv", quote=F)
+
+###################################################################

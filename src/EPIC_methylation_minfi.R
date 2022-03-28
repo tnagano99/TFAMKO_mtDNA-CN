@@ -1,3 +1,4 @@
+# Old file no longer used
 # if need to install packages
 
 if (!requireNamespace("BiocManager", quietly = TRUE))

@@ -1,9 +1,12 @@
 #!/bin/bash
-#SBATCH --time=12:00:00
+#SBATCH --time=1:00:00
 #SBATCH --account=def-ccastel
-#SBATCH --mem=240G
+#SBATCH --mem=50G
 #SBATCH --nodes=1
 
 
 echo "Run Meme Suite Analysis script"
-meme -oc /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/meme_out -neg /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/data/fasta/neg_controls.fa -objfun de -rna -mod oops -minw 5 -maxw 20 /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/data/fasta/tfam_ko.fa
+
+cd ../data/fasta
+
+streme -oc /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/streme_out_500 -objfun de -dna -minw 8 -maxw 20 -p sig_genes_upstream.fa 

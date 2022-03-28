@@ -1,9 +1,4 @@
 #ELMER, FUNCTIONAL ENRICHMENT and HOMER
-#if (!requireNamespace("BiocManager", quietly=TRUE))
-  #  install.packages("BiocManager")
-#BiocManager::install("ELMER")
-#BiocManager::install("GenomicInteractions")
-
 library(ELMER)
 library(MultiAssayExperiment)
 library(data.table)
@@ -11,25 +6,28 @@ library(dplyr)
 library(biomaRt)
 library(sesameData)
 
-# setwd("/dcs01/arking/arkinglab/active/projects/aric/epigenetics/ccastell/EPIC/Data/EPICRerun/")
-# setwd("../results/data")
-setwd("results/data")
-#Methylation for trusted probes (mean <0.2 between plates)
-#Setup for ttest method using 0.2 dataset (least stringent of the three options seems to show the most biology)
+# update to your working directory
+baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
+setwd(baseDir)
 
-#Make a note of all the filtering you did here*****************
-EPIC <- read.csv("beta.csv", header=T)
+######################### ELMER Creating Data Input ##########################
+# Read in beta values
+EPIC <- read.csv("./results/data/beta.csv", header=T)
 row.names(EPIC) <- EPIC$X
 EPIC$X <- NULL
 
-# EPIC <- EPIC[,which(colnames(EPIC) %in% c("TFAM_KO_Clone_11_2", "HEK293T_NC.1_2", "TFAM_KO_Clone_5_2", "HEK293T_NC.2_2", "TFAM_KO_Clone_6_2", "HEK293T_NC.3_2", "HEK293T_NC.1_1", "HEK293T_NC.2_1", "HEK293T_NC.3_1", "TFAM_KO_Clone_5_1",  "TFAM_KO_Clone_6_1",  "TFAM_KO_Clone_11_1",))]
-
-#file from RNASeq
-
-RNA <- read.csv("SleuthGeneNormalized_TPM.csv", header=T)
+# read in RNA counts
+# RNA <- read.csv("./results/data/SleuthGeneNormalized_TPM.csv", header=T) # Sleuth
+RNA <- read.csv("./results/data/EdgeRGeneEstCountsMax.csv") # EdgeR
 row.names(RNA) <- RNA$X
 RNA$X <- NULL
-colnames(RNA) <- c("TFAM_KO_Clone_11_1", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_1", "TFAM_KO_Clone_5_2", "TFAM_KO_Clone_6_1", "TFAM_KO_Clone_6_2", "HEK293T_NC.1_1", "HEK293T_NC.1_2", "HEK293T_NC.2_1", "HEK293T_NC.2_2", "HEK293T_NC.3_1", "HEK293T_NC.3_2")
+
+# for sleuth
+# colnames(RNA) <- c("TFAM_KO_Clone_11_1", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_1", "TFAM_KO_Clone_5_2", "TFAM_KO_Clone_6_1", "TFAM_KO_Clone_6_2", "HEK293T_NC.1_1", "HEK293T_NC.1_2", "HEK293T_NC.2_1", "HEK293T_NC.2_2", "HEK293T_NC.3_1", "HEK293T_NC.3_2")
+
+# for edgeR
+colnames(RNA) <- c("HEK293T_NC.1_1", "TFAM_KO_Clone_6_1", "HEK293T_NC.3_1", "TFAM_KO_Clone_11_1", "TFAM_KO_Clone_5_1", "HEK293T_NC.2_1", "HEK293T_NC.1_2", "TFAM_KO_Clone_6_2", "HEK293T_NC.3_2", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_2", "HEK293T_NC.2_2")
+
 RNA <- RNA[, colnames(EPIC)]
 
 #Remove genes with TPM < 0.5 in >49% of samples
@@ -37,31 +35,17 @@ RNA$TPM05 <- rowSums(RNA<0.5)
 RNA <- subset(RNA, RNA$TPM05 < 7)
 RNA$TPM05 <- NULL
 
-# read in RNA-Seq analysis results to get significant genes
-df <- read.csv("SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
-names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
-
-# use biomaRt to find mapping info between ensembl and entrez gene IDS
-mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
-genes <- getBM(
-  attributes=c("ensembl_gene_id", "entrezgene_id"),
-  mart=mart,
-  useCache = FALSE)
-
-# merge data with entrez gene ids
-df_anno <- merge(df, genes, by = "ensembl_gene_id")
-df_sig <- filter(df_anno, pval < 3.59e-6) # 3.590149e-06
-
-# filter RNA by significant genes
-RNA <- subset(RNA, rownames(RNA) %in% df_sig$ensembl_gene_id)
-
+# create dataframe to specify sample group Experiment (KO), Control (NC)
 primary <- colnames(RNA)
 GroupLabel <- c("Experiment", "Control", "Experiment", "Control", "Experiment", "Control", "Control", "Control", "Control", "Experiment", "Experiment", "Experiment")
 Sample <- cbind(primary, GroupLabel)
 Sample <- as.data.frame(Sample)
 row.names(Sample) <- Sample$primary
 
+# load EPIC manifest
 sesameDataCache("EPIC.hg19.manifest")
+
+# create MAE object for ELMER
 data <- createMAE(exp = RNA, 
                   met = EPIC,
                   met.platform = "EPIC",
@@ -71,47 +55,33 @@ data <- createMAE(exp = RNA,
                   colData=Sample,
                   met.na.cut=0.05
                   )
-#supervised mode
 
+############################# ELMER find Probe-Gene Pairs ##########################
 
-sig.diff <- get.diff.meth(data = data, 
-                          group.col = "GroupLabel",
-                          group1 =  "Control",
-                          group2 = "Experiment",
-                          mode = "supervised",
-                          minSubgroupFrac = 1, # if supervised mode set to 1
-                          sig.dif = 0,
-                          diff.dir = "both",
-                          cores = 1,  
-                          pvalue = 0.05,
-                          save = TRUE
-                          )
+# find significant DMPs using ELMER
+# not used in this analysis
+# feeding signifcant 
+# sig.diff <- get.diff.meth(data = data, 
+#                           group.col = "GroupLabel",
+#                           group1 =  "Control",
+#                           group2 = "Experiment",
+#                           mode = "supervised",
+#                           minSubgroupFrac = 1, # if supervised mode set to 1
+#                           sig.dif = 0,
+#                           diff.dir = "both",
+#                           cores = 1,  
+#                           pvalue = 0.05,
+#                           save = TRUE
+#                           )
 
-#adjusted P value by BH
-#ELMER will search for probes differently methylated in group Control (n:6) compared to Experiment (n:6)
-#ooo Arguments ooo
-#o Number of probes: 728012
-#o Beta value difference cut-off: 0
-#o FDR cut-off: 0.05
-#o Mode: unsupervised
-#o % of samples per group in each comparison: 1
-#o Min number of samples per group in each comparison: 5
-#o Nb of samples group1 in each comparison: 6
-#o Nb of samples group2 in each comparison: 6
-#81441 results
-
-sig.diff <- sig.diff[order(sig.diff$pvalue),]
-
-sig_cpgs <- as.data.frame(read.csv("dmp_cont.csv"))
+# read in DMP results to feed significant DMPs into ELMER
+sig_cpgs <- as.data.frame(read.csv("./results/data/dmp_cont.csv"))
 sig_cpgs <- filter(sig_cpgs, pval < 1e-7)
 
+# find nearest 20 genes (10 upstream, 10 downstream) of significant CpGs
 nearGenes <- GetNearGenes(data = data, 
                          probes = sig_cpgs$X, 
                          numFlankingGenes = 20)
-
-# nearGenes <- GetNearGenes(data = data, 
-#                          probes = sig.diff$probe, 
-#                          numFlankingGenes = 40) # 20 upstream and 20 dowstream genes
 
 pairs <- get.pair(data = data,
                       group.col = "GroupLabel",
@@ -127,17 +97,16 @@ pairs <- get.pair(data = data,
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL_DMP_CONT_SIG", diff.dir="both")
+                      label = "ALL_DMP_CONT_EDGER_MAX", diff.dir="both")
 
-save.image("ELMER_TFAMKO_INTER_SIG.RData")
+save.image("ELMER_TFAMKO_INTER_EDGER_MAX.RData")
 
-# pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
-pairs <- read.csv("getPair.ALL_DMP_CONT_SIG.all.pairs.statistic.csv")
-pairs2 <- subset(pairs, pairs$Raw.p < 0.01)
+pairs <- read.csv("getPair.ALL_DMP_CONT_EDGER_MAX.pairs.statistic.with.empirical.pvalue.csv")
+pairs2 <- subset(pairs, pairs$FDR < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
                                      probes = pairs2$Probe, 
-                                     label = "ALL_SIG",
+                                     label = "ALL_DMP_CONT_EDGER_MAX",
                                      min.incidence = 10,
                                      lower.OR = 1.1,
                                      save = TRUE)
@@ -149,11 +118,12 @@ TF <- get.TFs(data = data,
               mode = "supervised",
               enriched.motif = enriched.motif,
               cores = 1, 
-              label = "ALL_SIG", diff.dir="both")
+              label = "ALL_DMP_CONT_EDGER_MAX", diff.dir="both")
 
-save.image("ELMER_TFAMKO_FINAL_SIG.RData")
+save.image("ELMER_TFAMKO_FINAL_EDGER_MAX.RData")
 
-#########
+################ ELMER Visualizations #################
+
 # run the below block
 CpG <- "cg05164933"
 gene_id <- c("ENSG00000145423")
@@ -161,11 +131,9 @@ scatter.plot(data = data,
        byPair = list(probe = c(CpG), gene = gene_id), 
        category = "GroupLabel", save = TRUE, lm_line = TRUE, dir.out = "./results/plots/ELMER")
 
-#need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
+# need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
 
-#One probe and all nearby genes
-# cg14557185 most significant
-# probes20 <- sig.diff$probe[1:10]
+# Create scatterplots of each of Top 20 CpGs with 20 closest genes
 probes20 <- sig_cpgs$X[1:20]
 for (probes in probes20) {
   scatter.plot(data = data,
@@ -173,16 +141,9 @@ for (probes in probes20) {
               category = "GroupLabel", 
               lm = TRUE, # Draw linear regression curve
               save = TRUE,
-              dir.out = "../plots/ELMER") 
+              dir.out = "./results/plots/ELMER") 
 }
 
-# probe <- sig_cpgs$X[5]
-# scatter.plot(data = data,
-#               byProbe = list(probe = probe, numFlankingGenes = 40), 
-#               category = "GroupLabel", 
-#               lm = TRUE, # Draw linear regression curve
-#               save = TRUE,
-#               dir.out = "../plots/ELMER") 
 
 #schematic plot nearby genes
 schematic.plot(pair = pairs2, 
@@ -190,7 +151,7 @@ schematic.plot(pair = pairs2,
                group.col = "GroupLabel",
                byProbe = pairs2$Probe[1],
                save = TRUE,
-               dir.out = "../plots/ELMER")
+               dir.out = "./results/plots/ELMER")
 
 #schematic plot nearby probes together
 schematic.plot(pair = pairs, 
@@ -198,26 +159,26 @@ schematic.plot(pair = pairs,
                group.col = "GroupLabel", 
                byGene = pairs2$GeneID[1],
                save = TRUE,
-               dir.out = "../plots/ELMER")
+               dir.out = "./results/plots/ELMER")
 
-#TF expression vs. average DNA methylation
-# try this gene GABBR1
+#TF expression vs. average DNA methylation try GABBR1
 scatter.plot(data = data,
-             byTF = list(TF = c("MAFK", "MAF", "MAFF", "MAFB", "MAFG"), # "MAFK", "MAF", "MAFF", "MAFB", "MAFG",,"GATA1", "GATA2", "GATA4", "GATA6"
+             byTF = list(TF = c("MAFK", "MAF", "MAFF", "MAFB", "MAFG"),
                          probe = enriched.motif[[names(enriched.motif)[1]]]), 
              category = "GroupLabel",
              save = TRUE, 
              lm_line = TRUE,
-             dir.out = "../plots/ELMER")
+             dir.out = "./results/plots/ELMER")
 
-enrich2 <- read.csv("getMotif.ALL_DMP_CONT.motif.enrichment.csv", header=T)
+# read in enrichment results to plot
+enrich2 <- read.csv("getMotif.ALL_DMP_CONT_EDGER_MAX.motif.enrichment.csv", header=T)
 
 motif.enrichment.plot(motif.enrichment = enrich2, 
                       significant = list(OR = 1.1,lowerOR = 1.1), 
-                      label = "ALL_DMP_CONT", 
+                      label = "ALL_DMP_CONT_EDGER_MAX", 
                       summary = TRUE,
                       save = TRUE,
-                      dir.out = "../plots/ELMER/")  
+                      dir.out = "./results/plots/ELMER")  
 
 heatmapPairs(data = data, 
              group.col = "GroupLabel",
@@ -226,14 +187,10 @@ heatmapPairs(data = data,
              pairs = pairs2,
              filename =  "HeatmapPairs.pdf")
              
-load("getTF.ALL.TFs.with.motif.pvalue.rda")
-motif <- colnames(TF.meth.cor)[1]
-TF.rank.plot(motif.pvalue = TF.meth.cor, 
-             motif = motif,
-             save = TRUE,
-             dir.out = "../plots/ELMER") 
-             
-             
-             
-             pairs.first <- pair[match(unique(pair$Symbol), pair$Symbol),]
+# load("getTF.ALL.TFs.with.motif.pvalue.rda")
+# motif <- colnames(TF.meth.cor)[1]
+# TF.rank.plot(motif.pvalue = TF.meth.cor, 
+#              motif = motif,
+#              save = TRUE,
+#              dir.out = ".results/plots/ELMER") 
         
