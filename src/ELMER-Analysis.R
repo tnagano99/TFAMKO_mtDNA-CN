@@ -97,11 +97,13 @@ pairs <- get.pair(data = data,
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL_DMP_CONT_EDGER_MAX", diff.dir="both")
+                      label = "ALL_DMP_CONT_EDGER_MAX", 
+                      diff.dir="both",
+                      dir.out = './results/data')
 
-save.image("ELMER_TFAMKO_INTER_EDGER_MAX.RData")
+save.image("./results/data/ELMER_TFAMKO_INTER_EDGER_MAX.RData")
 
-pairs <- read.csv("getPair.ALL_DMP_CONT_EDGER_MAX.pairs.statistic.with.empirical.pvalue.csv")
+pairs <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX.pairs.statistic.with.empirical.pvalue.csv")
 pairs2 <- subset(pairs, pairs$FDR < 0.01)
 
 enriched.motif <- get.enriched.motif(data = data,
@@ -109,7 +111,8 @@ enriched.motif <- get.enriched.motif(data = data,
                                      label = "ALL_DMP_CONT_EDGER_MAX",
                                      min.incidence = 10,
                                      lower.OR = 1.1,
-                                     save = TRUE)
+                                     save = TRUE,
+                                     dir.out = './results/data')
 
 TF <- get.TFs(data = data, 
               group.col = "GroupLabel",
@@ -118,9 +121,11 @@ TF <- get.TFs(data = data,
               mode = "supervised",
               enriched.motif = enriched.motif,
               cores = 1, 
-              label = "ALL_DMP_CONT_EDGER_MAX", diff.dir="both")
+              label = "ALL_DMP_CONT_EDGER_MAX", 
+              diff.dir="both",
+              dir.out = './results/data')
 
-save.image("ELMER_TFAMKO_FINAL_EDGER_MAX.RData")
+save.image("./results/data/ELMER_TFAMKO_FINAL_EDGER_MAX.RData")
 
 ################ ELMER Visualizations #################
 
@@ -143,7 +148,6 @@ for (probes in probes20) {
               save = TRUE,
               dir.out = "./results/plots/ELMER") 
 }
-
 
 #schematic plot nearby genes
 schematic.plot(pair = pairs2, 

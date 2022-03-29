@@ -40,7 +40,7 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 	title=c()
 
   # initialize the jpeg file to create the plot
-	jpeg(paste("./results/plots/manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
+	jpeg(paste("./results/plots/manhattan/manhattan_", filename, ".jpeg",sep=""),res=400,width = 40, height = 12,units="cm")
 	
   # initialize x-axis scale
   chr <- c(1:22)

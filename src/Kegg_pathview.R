@@ -32,7 +32,7 @@ genes <- getBM(
 
 df_anno <- merge(expanded, genes, by = "ensembl_gene_id")
 
-pathways <- pathview(gene.data = expanded$ensembl_gene_id, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBLTRANS", kegg.dir = "./results/plots", out.suffix = "DMP") # 04080 Neuro 04727 GABA synapse 05033 nicotine
+pathways <- pathview(gene.data = expanded$ensembl_gene_id, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBLTRANS", kegg.dir = "./results/plots/pathview", out.suffix = "DMP") # 04080 Neuro 04727 GABA synapse 05033 nicotine
 
 # differentially expressed genes
 # df <- read.csv("./results/data/SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
@@ -40,17 +40,17 @@ df <- read.csv("./results/data/EdgeR_RNA_all_genes.csv", header=T)
 names(df)[names(df) == "X"] <- "ensembl_gene_id"
 
 df <- filter(df, pval < 3.59e-6)
-pathways <- pathview(gene.data = df$ensembl_gene_id, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBL", kegg.dir = "./results/plots", out.suffix = "RNA")
+pathways <- pathview(gene.data = df$ensembl_gene_id, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBL", kegg.dir = "./results/plots/pathview", out.suffix = "RNA")
 
 # differentially methylated region
 df1 <- read.csv("./results/data/DMRS_anno.csv", header=T) # DMRcate results
 df1 <- filter(df1, Fisher < 1.17e-5)
 df1 <- separate_rows(df1, overlapping.genes, sep=", ", convert = TRUE)
-pathways <- pathview(gene.data = df1$overlapping.genes, pathway.id = "05033", species = "hsa", gene.idtype="SYMBOL", kegg.dir = "./results/plots", out.suffix = "DMR")
+pathways <- pathview(gene.data = df1$overlapping.genes, pathway.id = "05033", species = "hsa", gene.idtype="SYMBOL", kegg.dir = "./results/plots/pathview", out.suffix = "DMR")
 
 df1$ENSEMBL <- mapIds(org.Hs.eg.db, as.character(df1$overlapping.genes), "ENSEMBL", "SYMBOL")
 df1 <- as.data.frame(df1)
-pathways <- pathview(gene.data = df1$ENSEMBL, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBL", kegg.dir = "./results/plots", out.suffix = "DMR")
+pathways <- pathview(gene.data = df1$ENSEMBL, pathway.id = "05033", species = "hsa", gene.idtype="ENSEMBL", kegg.dir = "./results/plots/pathview", out.suffix = "DMR")
 
 #Extract genes for KEGG
 z <- getMappedEntrezIDs(sigCpGs, allCpGs, array.type="EPIC")

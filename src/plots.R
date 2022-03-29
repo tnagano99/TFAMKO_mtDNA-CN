@@ -12,6 +12,11 @@ annotate <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 ######################################################## Manhattan Plots Probe and Region #####################################################
 
+##############
+#### NOTE ####
+##############
+# Run the manhattanraw function in code_snippets.R before calling function in this script
+
 # create manhattan plot
 # swap lmerResults and pval/pvalue depending on file
 # lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = ""))) 
@@ -74,7 +79,7 @@ Type <- factor(targets$Group)
 # ID <- substr(targets$Decode, 1, nchar(targets$Decode)-2)
 values <- coef(lm(formula = CpG_beta ~ mtDNACN, data = df))
 
-pdf(paste0("./results/plots/mtDNACN-", CpG, ".pdf"))
+pdf(paste0("./results/plots/CpG_mtDNA-CN/mtDNACN-", CpG, ".pdf"))
 par(mfrow=c(1,1))
 ggplot(df, aes(x=mtDNACN, y=CpG_beta)) + geom_point(aes(color = Type, size = 10)) + geom_abline(intercept = values[1], slope = values[2]) + ylab(CpG)
 dev.off()

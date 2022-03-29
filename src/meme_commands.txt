@@ -27,7 +27,7 @@ cat HHGKNBCX2_1_ATTCAGAA~CAGGACGT_1.fa HHGKNBCX2_1_ATTCAGAA~CAGGACGT_2.fa HHGKNB
 got below sequences from get_meme_sequences.R
 
 command: motifs between 5-20 base pairs long in 500bps upstream of TSS for significant genes
-streme -oc /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/streme_out_500 -objfun de -nmotifs 100 -dna -minw 5 -maxw 20 -p sig_genes_upstream.fa
+streme -oc /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/plots/streme_out_500 -objfun de -nmotifs 100 -dna -minw 5 -maxw 20 -p sig_genes_upstream.fa
 
 command: motifs between 5-20 base pairs long in 1000bps upstream of TSS for significant genes
-streme -oc /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/streme_out_1000 -objfun de -nmotifs 100 -dna -minw 5 -maxw 20 -p sig_genes_upstream_1000.fa
+streme -oc /home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/plots/streme_out_1000 -objfun de -nmotifs 100 -dna -minw 5 -maxw 20 -p sig_genes_upstream_1000.fa

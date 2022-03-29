@@ -84,7 +84,7 @@ threshold <- 0.15
 beta['Threshold'] <- abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold
 
 # create scatter plot of rowMeansRun1 vs rowMeansRun2
-# pdf("./results/plots/NC_Means_Scatter_0.15.pdf")
+# pdf("./results/plots/minfi/NC_Means_Scatter_0.15.pdf")
 # par(mfrow=c(1,1))
 # ggplot(beta, aes(x=rowMeansRun1, y=rowMeansRun2)) + geom_point(aes(color = factor(Threshold)))
 # dev.off()
@@ -160,10 +160,10 @@ rangesDMR <- as.data.frame(rangesDMR)
 ############# Probe analysis viz from minfi ################
 # output the quality control reports
 # Decode equivalent to Sample_Name and Status equal to Group between runs
-qcReport(rgSet, sampNames=targets$Decode, sampGroup = targets$Group, pdf="./results/plots/qcreport.pdf")
+qcReport(rgSet, sampNames=targets$Decode, sampGroup = targets$Group, pdf="./results/plots/minfi/qcreport.pdf")
 
 # visualize normalization
-pdf("./results/plots/norm.pdf")
+pdf("./results/plots/minfi/norm.pdf")
 par(mfrow=c(1,2))
 densityPlot(getBeta(mSetSq), sampGroups=targets$Group, main="Normalized", legend=FALSE)
 legend("top", legend = levels(factor(targets$Group)), text.col=brewer.pal(8,"Dark2"))
@@ -173,7 +173,7 @@ dev.off()
 
 # output MDS plot of the methylation data to results for Run 1
 # shows PC 1 separates the Control and KO lines nicely
-pdf("./results/plots/MDS.pdf")
+pdf("./results/plots/minfi/MDS.pdf")
 par(mfrow=c(1,1))
 plotMDS(getM(mSetSqFlt), top=1000, gene.selection="common", cex=0.8)
 legend("right", legend=levels(factor(targets$Group)),
@@ -187,7 +187,7 @@ groups <- c(Knockout="magenta", Normal="forestgreen")
 cols <- groups[as.character(targets$Group)]
 
 for (i in 1:10) {
-	pdf(paste0("./results/plots/DMR_", i, "_10e-4.pdf"))
+	pdf(paste0("./results/plots/DMRcate/DMR_", i, "_10e-4.pdf"))
 	par(mfrow=c(1,1))
 	DMR.plot(ranges=rangesDMR, dmr=i, CpGs=beta, what="Beta", arraytype="EPIC", phen.col=cols, genome = "hg19")
 	dev.off()
