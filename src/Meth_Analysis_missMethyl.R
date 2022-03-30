@@ -38,20 +38,23 @@ sigKEGG <- sigKEGG %>% arrange(P.DE) # sort in order by P value
 # write.csv(sigKEGG, paste(baseDir, "/results/data/KEGG_Cont.csv", sep=""))
 
 # output differentially methylated probes with annotation
-
-merged <- merge(df_sigCpGs, annotate, by.x="X", by.y="Name")
+merged <- merge(summaryStats, annotate, by.x="X", by.y="Name")
 merged <- as.data.frame(merged)
 merged <- merged %>% arrange(pval)
 merged <- merged[,c("X", "intercept", "beta", "t", "pval", "qval", "chr", "pos", "UCSC_RefGene_Name", "UCSC_RefGene_Accession", "UCSC_RefGene_Group", "GencodeCompV12_NAME", "GencodeCompV12_Accession", "GencodeCompV12_Group")]
 write.csv(merged, paste(baseDir, "/results/data/DMPs_anno.csv", sep=""))
 
 ####################### Functional Enrichment DMR MissMethyl ##############################
+
+# read in DMRs
+rangesDMR <- as.data.frame(read.csv(paste(baseDir, "/results/data/DMRS_anno.csv", sep = "")))
+
 # use goregion to find differentially methylated regions
-DMR_sigGO <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "GO", array.type = "EPIC", plot.bias=TRUE)
+DMR_sigGO <- goregion(rangesDMR, all.cpg = allCpGs, collection = "GO", array.type = "EPIC", plot.bias=TRUE)
 DMR_sigGO <- DMR_sigGO %>% arrange(P.DE)
 # write.csv(DMR_sigGO, paste(baseDir, "/results/data/GO_DMRcate_pval.csv", sep=""))
 
-DMR_sigKEGG <- goregion(rangesDMR, all.cpg = rownames(mVal), collection = "KEGG", array.type = "EPIC", plot.bias=TRUE)
+DMR_sigKEGG <- goregion(rangesDMR, all.cpg = allCpGs, collection = "KEGG", array.type = "EPIC", plot.bias=TRUE)
 DMR_sigKEGG <- DMR_sigKEGG %>% arrange(P.DE)
 # write.csv(DMR_sigKEGG, paste(baseDir, "/results/data/KEGG_DMRcate_pval.csv", sep=""))
 

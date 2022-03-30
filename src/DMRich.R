@@ -171,6 +171,7 @@ DMRichCpG <- function(sigRegions = sigRegions,
 #' @export DMRichPlot
 #' 
 
+# updated function from source data parameter requires Annotation, OR and fdr columns
 DMRichPlot <- function(data = data,
                        type = c("CpG", "genic"),
                        multi = FALSE){
@@ -206,7 +207,7 @@ DMRichPlot <- function(data = data,
   p <- ggplot(data = data,
               aes(x = Annotation,
                   y = OR,
-                  fill = Annotation)
+                  fill = -log(fdr, base = 10)) # updated fill from Annotation
   ) +
     geom_bar(stat = "identity", 
              color = "Black") +
@@ -221,7 +222,7 @@ DMRichPlot <- function(data = data,
           axis.title = element_text(size = 16),
           strip.text = element_text(size = 16),
           legend.text = element_text(size = 14),
-          legend.position = "none"
+          legend.position = "right"
     ) +
     scale_y_continuous(expand = c(0.1, 0.1)) + 
     scale_x_discrete(limits = data$Annotation %>%
@@ -234,13 +235,13 @@ DMRichPlot <- function(data = data,
               label = "*",
               size = 8,
               show.legend = FALSE,
-              nudge_y = 0.1,
+              nudge_y = 0.1, # updated to move star closer to bar
               nudge_x = -0.09) +
     geom_text(data = data[(data$signif == 1 & data$OR < 0), ],
               label = "*",
               size = 8,
               show.legend = FALSE,
-              nudge_y = -0.1,
+              nudge_y = -0.1, # updated to move star closer to bar
               nudge_x = -0.09)
   
   if(type == "CpG"){
@@ -251,15 +252,19 @@ DMRichPlot <- function(data = data,
                           levels(),
                         name = "Annotation")
   }else if(type == "genic"){
+    # updated this block to use scale_fill_gradient
+    # p <- p +
+    #   scale_fill_manual(values = data$Annotation %>%
+    #                       as.factor() %>%
+    #                       nlevels() %>%
+    #                       wesanderson::wes_palette("Zissou1", n = ., type = "continuous") %>%
+    #                       rev(),
+    #                     breaks = data$Annotation %>%
+    #                       levels(),
+    #                     name = "Annotation")
+    
     p <- p +
-      scale_fill_manual(values = data$Annotation %>%
-                          as.factor() %>% 
-                          nlevels() %>% 
-                          wesanderson::wes_palette("Zissou1", n = ., type = "continuous") %>%
-                          rev(),
-                        breaks = data$Annotation %>%
-                          levels(),
-                        name = "Annotation")
+      scale_fill_gradient(low='white', high='red', space='Lab')
   }
   if(multi == TRUE){
     p <- p +

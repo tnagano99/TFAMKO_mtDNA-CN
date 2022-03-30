@@ -108,7 +108,8 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 ######################### QQ Plot code ###################################
 
 qq.chisq(summaryStats$pval)
-pvals <- summaryStats$pval
+# pvals <- summaryStats$pval
+pvals <- summaryStats$PValue
 observed <- sort(pvals)
 observed2 <- c(length(pvals))
 observed2null <- -(log10(observed2 / (length(observed2)+1)))
@@ -119,7 +120,7 @@ expected <- c(1:length(observed))
 lexp <- -(log10(expected / (length(expected)+1)))
 # creating uniform distribution
 m="qqplot"
-pdf(paste0("./results/plots/QQ_DMP_CONT.pdf"))
+pdf(paste0("./results/plots/QQ_plots/QQ_EDGER.pdf"))
 par(mfrow=c(1,1))
 plot(c(0,20), c(0,20), col="red", lwd=4, type="l", xlab="Expected (-logP)",
 	ylab="Observed (-logP)", xlim=c(0,7), ylim=c(0,7), las=1, xaxs="i", yaxs="i", bty="l", main=m)
@@ -275,6 +276,69 @@ cpg.annotate <- function (datatype = c("array", "sequencing"), object, what = c(
     message("Error: datatype must be one of 'array' or 'sequencing'")
   }
 }
+
+########################## getFlatAnnotation from MissMethyl ###########################
+
+# Taken from https://github.com/Oshlack/missMethyl/blob/master/R/gometh.R
+
+.getFlatAnnotation <- function(array.type=c("450K","EPIC"),anno=NULL)
+  # flatten 450k or EPIC array annotation
+  # Jovana Maksimovic
+  # 18 September 2018
+  # Updated 18 September 2018
+  # Modified version of Belida Phipson's .flattenAnn code
+{
+  if(is.null(anno)){
+    if(array.type=="450K"){
+      anno <- minfi::getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19::IlluminaHumanMethylation450kanno.ilmn12.hg19)
+    } else {
+      anno <- minfi::getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19::IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+    }
+  }
+  
+  # get rid of the non-CpG sites
+  ann.keep<-anno[grepl("^cg",anno$Name),]
+  
+  # get rid of CpGs that are not annotated
+  missing<-ann.keep$UCSC_RefGene_Name==""
+  ann.keep<-ann.keep[!missing,]
+  
+  # get individual gene names for each CpG
+  geneslist<-strsplit(ann.keep$UCSC_RefGene_Name,split=";")
+  names(geneslist)<-rownames(ann.keep)
+  
+  grouplist<-strsplit(ann.keep$UCSC_RefGene_Group,split=";")
+  names(grouplist)<-rownames(ann.keep)
+  
+  flat<-data.frame(symbol=unlist(geneslist),group=unlist(grouplist))
+  flat$symbol<-as.character(flat$symbol)
+  flat$group <- as.character(flat$group)
+  
+  flat$cpg<- substr(rownames(flat),1,10)
+  
+  #flat$cpg <- rownames(flat)
+  flat$alias <- suppressWarnings(limma::alias2SymbolTable(flat$symbol))
+  
+  #eg <- toTable(org.Hs.egSYMBOL2EG)
+  eg <- suppressMessages(AnnotationDbi::select(org.Hs.eg.db, 
+                                               keys=AnnotationDbi::keys(org.Hs.eg.db), 
+                                               columns=c("ENTREZID","SYMBOL"), 
+                                               keytype="ENTREZID"))
+  colnames(eg) <- c("gene_id","symbol")
+  
+  m <- match(flat$alias,eg$symbol)
+  flat$entrezid <- eg$gene_id[m]
+  flat <- flat[!is.na(flat$entrezid),]
+  
+  # keep unique cpg by gene name annotation
+  id<-paste(flat$cpg,flat$entrezid,sep=".")
+  d <- duplicated(id)
+  flat.u <- flat[!d,]
+  flat.u
+  # This randomly samples only 1 gene ID for multimapping CpGs
+  #.reduceMultiMap(flat.u)
+}
+
 
 ########################## Linear Mixed Model code #####################################
 

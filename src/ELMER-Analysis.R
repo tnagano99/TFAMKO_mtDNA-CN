@@ -198,3 +198,17 @@ heatmapPairs(data = data,
 #              save = TRUE,
 #              dir.out = ".results/plots/ELMER") 
         
+# check how many genes in EdgeR overlap with ELMER
+# 133 of 185 significant genes from RNA overlap with ELMER analysis
+# elmer <- unique(pairs2$GeneID)
+# edger <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv")
+
+# match <- logical(length(edger$X))
+# for (i in 1:length(edger$X)){
+#        for (j in 1:length(elmer)){
+#               if (edger$X[i] == elmer[j]) {
+#                      match[i] = TRUE
+#               } 
+#        }
+# }
+# table(match)
