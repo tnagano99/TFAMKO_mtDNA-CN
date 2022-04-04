@@ -145,11 +145,10 @@ design <- model.matrix(~Type+Batch) # specify design matrix Type and ID and line
 myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 1e-7)
 # returns 9110 significant probes using pval < 1e-7
 
+# betacutoff removes ranges with mean methylation between groups is less than or equal to 0.01
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) # # fdr is 1 using same cutoffs get 4259 regions; 106722 DMRs if fdr is 1 without cutoffs
 rangesDMR <- extractRanges(DMRs, genome = "hg19")
 
-# removes ranges with mean methylation between groups is less than or equal to 0.01
-rangesDMR <- rangesDMR[rangesDMR$meandiff > 0.05]
 rangesDMR <- rangesDMR[rangesDMR$Fisher < 1.17e-5] # filter out regions falling below bonferonni correction 0.05 / 4259 = 1.17e-5
 
 rangesDMR <- as.data.frame(rangesDMR)

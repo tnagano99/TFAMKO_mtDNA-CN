@@ -14,9 +14,7 @@ baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 # set working directory to be folder containing root
 setwd(baseDir)
 
-# load in differentially expressed genes
-# df_RNA <- read.csv("./results/data/EdgeR_RNA_all_genes.csv")
-
+################## For Methylation ####################
 # load in differentially methylated probes
 df_DMP <- read.csv("./results/data/DMPs_anno.csv")
 df_DMP_sig <- filter(df_DMP, pval < 1e-7)
@@ -36,6 +34,23 @@ ann$X <- rownames(ann)
 # merge sig DMPs with mapping to Entrez Gene IDs
 df <- merge(df_DMP_sig, ann, by="X")
 df <- df %>% arrange(pval)
+
+################# For RNA ######################
+###### Need to figure out what stats I can use to perform analysis
+# load in differentially expressed genes
+df_RNA <- read.csv("./results/data/EdgeR_RNA_sig_genes_min.csv")
+
+# use biomaRt to find mapping info between ensembl and entrez gene IDS
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
+genes <- getBM(
+  attributes=c("ensembl_gene_id", "entrezgene_id"),
+  mart=mart,
+  useCache = FALSE)
+
+df <- merge(df_RNA, genes, by.x="X", by.y="ensembl_gene_id")
+df <- df %>% arrange(PValue)
+
+################ For Both ###################
 df$abs.tscore <- abs(df$t)
 df$ranked.tvals <- order(df$abs.tscore, decreasing = T)
 
@@ -43,8 +58,26 @@ df$ranked.tvals <- order(df$abs.tscore, decreasing = T)
 # df_DMP_sig_genes <- getMappedEntrezIDs(df_DMP_sig$X, array.type = "EPIC")
 
 # load in datasets
+# Transcription Factor
 tft.sets <- read.gmt('./data/datasets/c3.tft.v7.5.1.entrez.gmt')
+
+# Reactome
 reactome.sets <- read.gmt('./data/datasets/c2.cp.reactome.v7.5.1.entrez.gmt')
+
+############################### mitoCarta #######################################
+library(readxl)
+
+mt.genes <- as.data.frame(read_excel("./data/datasets/Human.MitoCarta3.0.xlsx", sheet = "B Human All Genes"))
+mt.pathways <- as.data.frame(read_excel("./data/datasets/Human.MitoCarta3.0.xlsx", sheet = "C MitoPathways"))
+
+mt.sets <- as.list(strsplit(mt.pathways$Genes, split = ", "))
+names(mt.sets) <- mt.pathways$MitoPathway
+for (i in 1:length(mt.sets)) {
+	set <- as.data.frame(unique(mt.sets[[i]]))
+	colnames(set) <- c("set")
+	set.entrez <- merge(set, mt.genes, by.x = "set", by.y = "Symbol")
+	mt.sets[[i]] <- set.entrez$HumanGeneID
+}
 
 # perform.t.tests adapted from https://github.com/ArkingLab/mtDNA_GE_scripts/blob/master/Paper.Scripts/5.%20GO%20enrichment/permute.GO.all.tissues.R
 
@@ -85,6 +118,8 @@ all.tft.sets <- perform.t.tests(tft.sets, df)
 # write.csv(all.tft.sets, './results/data/overrepresentation_tft.csv')
 all.reactome.sets <- perform.t.tests(reactome.sets, df)
 # write.csv(all.reactome.sets, './results/data/overrepresentation_reactome.csv')
+all.mt.sets <- perform.t.tests(mt.sets, df)
+# write.csv(all.mt.sets, './results/data/overrepresentation_mt.csv')
 
 with.gene.permute <- df
 set.seed(1)
@@ -94,6 +129,7 @@ set.seed(1)
 start <- Sys.time()
 all.min.tft <- numeric()
 all.min.reactome <- numeric()
+all.min.mt <- numeric()
 
 for(p in 1:100){
   with.gene.permute$abs.tscore <- sample(with.gene.permute$abs.tscore)
@@ -108,6 +144,11 @@ for(p in 1:100){
   min.pval <- permute.reactome$T.test.pval[1]
   all.min.reactome <- c(all.min.reactome, min.pval)
 
+  ### mt
+  permute.mt <- perform.t.tests(mt.sets, with.gene.permute)
+  min.pval <- permute.mt$T.test.pval[1]
+  all.min.mt <- c(all.min.mt, min.pval)
+
   print(paste0('On permutation ', p))
 }
 end <- Sys.time()
@@ -116,19 +157,25 @@ runtime <- end-start
 print(paste0('Total runtime: ', runtime))
 
 ### save permuted values
-all.perm.cutoff.forset <- data.frame(TFT = all.min.tft, REACTOME = all.min.reactome)
+all.perm.cutoff.forset <- data.frame(TFT = all.min.tft, REACTOME = all.min.reactome, MT = all.min.mt)
 
 all.perm.cutoff.forset$TFT <- all.perm.cutoff.forset$TFT[order(all.perm.cutoff.forset$TFT, decreasing = F)]
 all.perm.cutoff.forset$REACTOME <- all.perm.cutoff.forset$REACTOME[order(all.perm.cutoff.forset$REACTOME, decreasing = F)]
+all.perm.cutoff.forset$MT <- all.perm.cutoff.forset$MT[order(all.perm.cutoff.forset$MT, decreasing = F)]
 
 # save(all.perm.cutoff.forset, file = 'all.perm.cutoff.forset.rds')
 
 sig.tft.results <- subset(all.tft.sets, T.test.pval < all.perm.cutoff.forset$TFT[nrow(all.perm.cutoff.forset) * 0.05])	
 sig.reactome.results <- subset(all.reactome.sets, T.test.pval < all.perm.cutoff.forset$REACTOME[nrow(all.perm.cutoff.forset) * 0.05])	
-
+sig.mt.results <- subset(all.mt.sets, T.test.pval < all.perm.cutoff.forset$MT[nrow(all.perm.cutoff.forset) * 0.05])
 
 if(nrow(sig.tft.results) != 0){sig.tft.results$Set <- 'TFT'}		
 if(nrow(sig.reactome.results) != 0){sig.reactome.results$Set <- 'REACTOME'}	
+if(nrow(sig.mt.results) != 0){sig.mt.results$Set <- 'MT'}	
 
 all.results <- plyr::rbind.fill(sig.tft.results, sig.reactome.results)
 # save(all.results, file = 'sig.pathways.nopseudo.permutecut.rds')
+write.csv(all.results, "./results/data/tft_reactome_mito_meth.csv")
+
+
+

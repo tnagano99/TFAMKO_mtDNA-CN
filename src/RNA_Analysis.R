@@ -6,7 +6,8 @@ library(dplyr)
 
 ############################################################################################
 
-setwd("results/data")
+baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
+setwd(baseDir)
 
 # Sleuth Results Older results no longer used
 # df <- read.csv("SleuthWaldTestResults.csv", header=T) # wald test results
@@ -14,7 +15,8 @@ setwd("results/data")
 # names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
 
 # EdgeR Results
-df <- read.csv("EdgeR_RNA_sig_genes.csv", header=T) # Likelihood test results
+# df <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv", header=T) # Likelihood test results
+df <- read.csv("./results/data/EdgeR_RNA_sig_genes_min.csv", header=T)
 names(df)[names(df) == "X"] <- "ensembl_gene_id"
 
 # use biomaRt to find mapping info between ensembl and entrez gene IDS
@@ -29,9 +31,10 @@ genes <- getBM(
 # df_anno <- merge(df, genes, by = "ensembl_gene_id")
 # df_sig <- filter(df_anno, pval < 3.59e-6) # 3.590149e-06
 
+# dropping some ids is biomart not up to date?
 # EdgeR Filtering and Joing with entrez IDs
 df_sig <- merge(df, genes, by = "ensembl_gene_id")
-df_sig <- filter(df_sig, pval < 3.44e-6)
+df_sig <- filter(df_sig, PValue < 3.44e-6)
 df_sig <- df_sig[!is.na(df_sig$entrezgene_id),]
 sig_genes <- df_sig$entrezgene_id
 
@@ -39,10 +42,10 @@ sig_genes <- df_sig$entrezgene_id
 go_rna <- goana(sig_genes, universe = genes$entrezgene_id)
 go_rna <- go_rna %>% arrange(P.DE)
 go_rna$GO_label <- rownames(go_rna)
-write.csv(go_rna, "GO_RNA_LRT_EDGER.csv")
+write.csv(go_rna, "./results/data/GO_RNA_LRT_EDGER_MIN.csv")
 
 # KEGG Enrichment
 kegg_rna <- kegga(sig_genes, universe = genes$entrezgene_id)
 kegg_rna <- kegg_rna %>% arrange(P.DE)
 kegg_rna$KEGG_label <- rownames(kegg_rna)
-write.csv(kegg_rna, "KEGG_RNA_LRT_EDGER.csv")
+write.csv(kegg_rna, "./results/data/KEGG_RNA_LRT_EDGER_MIN.csv")

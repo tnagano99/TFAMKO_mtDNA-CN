@@ -189,11 +189,8 @@ DMRichPlot <- function(data = data,
   }
   
   # updates Plot title depending on CpG or Genic
-  if (type == "CpG") {
-    plot_title <- "CpG Region Enrichment"
-  } else {
-    plot_title <- "Gene Region Enrichment"
-  }
+  plot_title <- "Functional Region Enrichment"
+  
   ##########
   
   data <- data %>%
@@ -214,7 +211,8 @@ DMRichPlot <- function(data = data,
     coord_flip() +
     labs(y = "Fold Enrichment",
          x = x_label, # updated depending on CpG or genic
-         title = plot_title # updated depending on CpG or genic
+         title = plot_title, # updated depending on CpG or genic
+         fill = "-log10(FDR)" # updated set legend title
     ) +
     theme_classic() + 
     theme(plot.title = element_text(size = 24, hjust = 0.5, face = "bold"), # added to set plot title size and center

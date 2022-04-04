@@ -59,3 +59,14 @@ KEGG$P.DE_Meth <- format(as.numeric(KEGG$P.DE_Meth), digits=3, scientific=T)
 KEGG$P.DE_RNA <- format(as.numeric(KEGG$P.DE_RNA), digits=3, scientific=T)
 KEGG$Fisher <- format(as.numeric(KEGG$Fisher), digits=3, scientific=T)
 kable(KEGG[1:10,], caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopKEGG_DMR_RNA_Fisher_EDGER.png")
+
+Comb_Enrich <- read.csv("./DMRichR/Functional_Enrichments_DMRichR.csv")
+Comb_Enrich <- Comb_Enrich %>% arrange(p.value)
+Comb_Enrich$X <- NULL
+Comb_Enrich$Direction <- NULL
+Comb_Enrich$OR <- format(as.numeric(Comb_Enrich$OR), digits=3, scientific=T)
+Comb_Enrich$CIlower <- format(as.numeric(Comb_Enrich$CIlower), digits=3, scientific=T)
+Comb_Enrich$CIupper <- format(as.numeric(Comb_Enrich$CIupper), digits=3, scientific=T)
+Comb_Enrich$p.value <- format(as.numeric(Comb_Enrich$p.value), digits=3, scientific=T)
+Comb_Enrich$fdr <- format(as.numeric(Comb_Enrich$fdr), digits=3, scientific=T)
+kable(Comb_Enrich, caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopFunctional_DMRichR.png")

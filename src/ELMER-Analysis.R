@@ -5,6 +5,7 @@ library(data.table)
 library(dplyr)
 library(biomaRt)
 library(sesameData)
+library(matrixStats)
 
 # update to your working directory
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
@@ -26,14 +27,20 @@ RNA$X <- NULL
 # colnames(RNA) <- c("TFAM_KO_Clone_11_1", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_1", "TFAM_KO_Clone_5_2", "TFAM_KO_Clone_6_1", "TFAM_KO_Clone_6_2", "HEK293T_NC.1_1", "HEK293T_NC.1_2", "HEK293T_NC.2_1", "HEK293T_NC.2_2", "HEK293T_NC.3_1", "HEK293T_NC.3_2")
 
 # for edgeR
-colnames(RNA) <- c("HEK293T_NC.1_1", "TFAM_KO_Clone_6_1", "HEK293T_NC.3_1", "TFAM_KO_Clone_11_1", "TFAM_KO_Clone_5_1", "HEK293T_NC.2_1", "HEK293T_NC.1_2", "TFAM_KO_Clone_6_2", "HEK293T_NC.3_2", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_2", "HEK293T_NC.2_2")
+cols <- c("HEK293T_NC.1_1", "TFAM_KO_Clone_6_1", "HEK293T_NC.3_1", "TFAM_KO_Clone_11_1", "TFAM_KO_Clone_5_1", "HEK293T_NC.2_1", "HEK293T_NC.1_2", "TFAM_KO_Clone_6_2", "HEK293T_NC.3_2", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_2", "HEK293T_NC.2_2")
+colnames(RNA) <- cols
 
 RNA <- RNA[, colnames(EPIC)]
 
-#Remove genes with TPM < 0.5 in >49% of samples
-RNA$TPM05 <- rowSums(RNA<0.5)
-RNA <- subset(RNA, RNA$TPM05 < 7)
-RNA$TPM05 <- NULL
+# Remove genes with TPM < 0.5 in >49% of samples
+# RNA$TPM05 <- rowSums(RNA)
+# RNA <- subset(RNA, RNA$TPM05 < 7)
+# RNA$TPM05 <- NULL
+
+# read in edgeR all genes to subset RNA counts by only genes from RNA analysis
+genes <- read.csv("./results/data/EdgeR_RNA_all_genes.csv")
+
+RNA <- subset(RNA, rownames(RNA) %in% genes$X)
 
 # create dataframe to specify sample group Experiment (KO), Control (NC)
 primary <- colnames(RNA)
@@ -60,7 +67,7 @@ data <- createMAE(exp = RNA,
 
 # find significant DMPs using ELMER
 # not used in this analysis
-# feeding signifcant 
+# feeding signifcant from DMP analysis
 # sig.diff <- get.diff.meth(data = data, 
 #                           group.col = "GroupLabel",
 #                           group1 =  "Control",
@@ -83,6 +90,7 @@ nearGenes <- GetNearGenes(data = data,
                          probes = sig_cpgs$X, 
                          numFlankingGenes = 20)
 
+# look at documentation: add diffExp = TRUE
 pairs <- get.pair(data = data,
                       group.col = "GroupLabel",
                       group1 =  "Control",
@@ -93,6 +101,7 @@ pairs <- get.pair(data = data,
                       permu.size = 100000, # Please set to 100000 to get significant results
                       raw.pvalue = 0.05,   
                       Pe = 0.001, # Please set to 0.001 to get significant results
+                     #  diffExp = TRUE,
                       filter.probes = FALSE, # See preAssociationProbeFiltering function
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
@@ -212,3 +221,182 @@ heatmapPairs(data = data,
 #        }
 # }
 # table(match)
+
+get.pair <- function(data,
+                     nearGenes,
+                     minSubgroupFrac = 0.4,
+                     permu.size = 10000,
+                     permu.dir = NULL,
+                     raw.pvalue = 0.001,
+                     Pe = 0.001,
+                     mode = "unsupervised",
+                     diff.dir = NULL,
+                     dir.out = "./",
+                     diffExp = FALSE,
+                     group.col,
+                     group1 = NULL,
+                     group2 = NULL,
+                     cores = 1,
+                     correlation = "negative",
+                     filter.probes = TRUE,
+                     filter.portion = 0.3,
+                     filter.percentage = 0.05,
+                     label = NULL,
+                     addDistNearestTSS = FALSE,
+                     save = TRUE){
+  
+  if(is.character(nearGenes)){
+    nearGenes <- get(load(nearGenes))
+  }
+  
+  # if(!all(c("ID", "GeneID", "Symbol" ) %in% colnames(nearGenes)))
+  #   stop("nearGenes does not have one of the expected columns: ID, GeneID, Symbol")
+  
+  if(diffExp & missing(group.col))
+    stop("Please set group.col argument to test whether putative target gene are differentially expressed between two groups.")
+  
+  if(missing(group.col)) stop("Please set group.col argument")
+  if(missing(group1)) stop("Please set group1 argument")
+  if(missing(group2)) stop("Please set group2 argument")
+  data <- data[,colData(data)[,group.col] %in% c(group1, group2)]
+  
+  # Supervised groups
+  unmethylated <- methylated <- NULL
+  if(mode == "supervised"){
+    if(is.null(diff.dir)) stop("For supervised mode please set diff.dir argument (same from the get.diff.meth)")
+    if(diff.dir == "hypo"){
+      message("Using pre-defined groups. U (unmethylated): ",group1,", M (methylated): ", group2)
+      unmethylated <-  which(colData(data)[,group.col]  == group1)
+      methylated <-  which(colData(data)[,group.col]  == group2)
+    } else {
+      message("Using pre-defined groups. U (unmethylated): ",group2,", M (methylated): ", group1)
+      unmethylated <-  which(colData(data)[,group.col]  == group2)
+      methylated <-  which(colData(data)[,group.col]  == group1)
+    }
+  } else {
+    message("Selecting U (unmethylated) and M (methylated) groups. Each groups has ", minSubgroupFrac * 50,"% of samples")
+  }
+  # Paralellization code
+  parallel <- FALSE
+  if (cores > 1){
+    if (cores > detectCores()) cores <- detectCores()
+    registerDoParallel(cores)
+    parallel = TRUE
+  }
+  
+  if(filter.probes) data <- preAssociationProbeFiltering(data, K = filter.portion, percentage = filter.percentage)
+  
+  met <- assay(getMet(data))
+  # Probes that were removed from the last steps cannot be verified
+  nearGenes <- nearGenes[nearGenes$ID %in% rownames(met),]
+  
+  if(nrow(nearGenes) == 0) {
+    message("No probes passed the preAssociationProbeFiltering filter")
+    return(NULL)
+  }
+  exp <- assay(getExp(data))
+  message("Calculating Pp (probe - gene) for all nearby genes")
+  Probe.gene <- adply(.data = unique(nearGenes$ID),
+                      .margins = 1,
+                      .fun = function(x) {
+                        Stat.nonpara(
+                          Probe = x,
+                          Meths = met[x,],
+                          methy = methylated,
+                          unmethy = unmethylated,
+                          NearGenes = as.data.frame(nearGenes),
+                          correlation = correlation,
+                          Top = minSubgroupFrac/2, # Each group will have half of the samples
+                          Exps = exp
+                        )
+                      },
+                      .progress = "time",
+                      .parallel = parallel,
+                      .id = NULL,
+                      .paropts = list(.errorhandling = 'pass')
+  )
+  
+  rownames(Probe.gene) <- paste0(Probe.gene$Probe,".",Probe.gene$GeneID)
+  Probe.gene <- Probe.gene[!is.na(Probe.gene$Raw.p),]
+  
+  if(save) {
+    dir.create(dir.out, showWarnings = FALSE)
+    file <- sprintf("%s/getPair.%s.all.pairs.statistic.csv",dir.out, ifelse(is.null(label),"",label))
+    write_csv(Probe.gene,file = file)
+    message(paste("File created:", file))
+  }
+  
+  Probe.gene <- Probe.gene[Probe.gene$Raw.p < raw.pvalue,]
+  Probe.gene <- Probe.gene[order(Probe.gene$Raw.p),]
+  selected <- Probe.gene
+  if(nrow(selected) == 0) {
+    message(paste("No significant pairs were found for pvalue =", raw.pvalue))
+    return(selected)
+  }
+  
+  
+  #   Probe.gene$logRaw.p <- -log10(Probe.gene$Raw.p)
+  if(mode == "unsupervised"){
+    GeneID <- unique(Probe.gene[,"GeneID"])
+    message(paste("Calculating Pr (random probe - gene). Permutating ", permu.size, "probes for",  length(GeneID), "genes"))
+    # get permutation
+    permu <- get.permu(data,
+                       geneID     = GeneID,
+                       percentage = minSubgroupFrac / 2,
+                       rm.probes  = unique(nearGenes$ID),
+                       methy      = methylated,
+                       unmethy    = unmethylated,
+                       correlation = correlation,
+                       permu.size = permu.size,
+                       permu.dir  = permu.dir,
+                       cores      = cores)
+    # Get empirical p-value
+    Probe.gene.Pe <- Get.Pvalue.p(Probe.gene,permu)
+    
+    if(save) write_csv(Probe.gene.Pe,
+                       file = sprintf("%s/getPair.%s.pairs.statistic.with.empirical.pvalue.csv",dir.out,
+                                      ifelse(is.null(label),"",label)))
+    # Pe will always be 1 for the supervised mode. As the test exp(U) > exp(M) will always be doing the same comparison.
+    selected <- Probe.gene.Pe[Probe.gene.Pe$Pe < Pe & !is.na(Probe.gene.Pe$Pe),]
+  } else {
+    Probe.gene$FDR <- p.adjust(Probe.gene$Raw.p,method = "BH")
+    if(save) write_csv(Probe.gene,
+                       file=sprintf("%s/getPair.%s.pairs.statistic.with.empirical.pvalue.csv",dir.out,
+                                    ifelse(is.null(label),"",label)))
+    selected <-  Probe.gene[Probe.gene$FDR < Pe,]
+  }
+  
+  # Change distance from gene to nearest TSS
+  if(addDistNearestTSS) {
+    selected$Distance <- NULL
+    selected <- addDistNearestTSS(data, NearGenes = selected)
+  }
+  if(diffExp){
+    message("Calculating differential expression between two groups")
+    Exp <- assay(getExp(data)[unique(selected$GeneID),])
+    groups <- unique(colData(data)[,group.col])
+    prefix <- paste(gsub("[[:punct:]]| ", ".", groups),collapse =  ".vs.")
+    log.col <- paste0("log2FC_",prefix)
+    diff.col <- paste0(prefix,".diff.pvalue")
+    idx1 <- colData(data)[,group.col] == groups[1]
+    idx2 <- colData(data)[,group.col] == groups[2]
+    out <- adply(.data = split(Exp,rownames(Exp)), .margins = 1,
+                 .fun = function(x) {
+                   test <- t.test(x = x[idx1],y = x[idx2])
+                   out <- data.frame("log2FC" = test$estimate[1] - test$estimate[2],
+                                     "diff.pvalue" = test$p.value)
+                 },
+                 .progress = "time",
+                 .parallel = parallel,
+                 .id = "GeneID",
+                 .paropts = list(.errorhandling = 'pass')
+    )
+    head(add)
+    add <- out[match(selected$GeneID, out$GeneID),c("log2FC","diff.pvalue")]
+    colnames(add) <- c(log.col,diff.col)
+    selected <- cbind(selected, add)
+  }
+  if(save) write_csv(selected,file = sprintf("%s/getPair.%s.pairs.significant.csv",dir.out, ifelse(is.null(label),"",label)))
+  invisible(gc())
+  return(selected)
+}
