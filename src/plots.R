@@ -3,7 +3,7 @@ library(dplyr)
 library(minfi)
 library(missMethyl)
 library(biomaRt)
-library(ggplot)
+library(ggplot2)
 # library(qqman)
 # library(limma)
 
@@ -50,7 +50,7 @@ colnames(merged)[colnames(merged) == "chromosome_name"] <- "chr"
 colnames(merged)[colnames(merged) == "start_position"] <- "start"
 chr_filt <- as.character(1:22)
 merged <- filter(merged, merged$chr %in% chr_filt)
-manhattanraw(DMS=merged, filename="RNA_EdgeR", sig=5.452)
+manhattanraw(DMS=merged, filename="RNA_EdgeR", sig=5.452) # 14149 = 5.452 18270 = 5.562
 
 ############ DMRranges Manhattan plot ######################
 

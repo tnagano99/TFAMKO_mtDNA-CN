@@ -7,6 +7,7 @@ library(dplyr)
 library(biomaRt)
 library(missMethyl)
 library(org.Hs.eg.db)
+library(readxl)
 
 # Update baseDir to proper location
 baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
@@ -21,7 +22,7 @@ df_DMP_sig <- filter(df_DMP, pval < 1e-7)
 
 # load in most recent annotation file from illumina
 # https://support.illumina.com/array/array_kits/infinium-methylationepic-beadchip-kit/downloads.html
-# v1.0 B5 manifest file
+# v1.0 B4 manifest file same one used to annotate CpGs in missMethyl/minfi
 minann <- read.csv("./data/datasets/MethylationEPIC_v-1-0_B4.csv", skip = 7)
 rownames(minann) <- minann$IlmnID
 
@@ -34,11 +35,12 @@ ann$X <- rownames(ann)
 # merge sig DMPs with mapping to Entrez Gene IDs
 df <- merge(df_DMP_sig, ann, by="X")
 df <- df %>% arrange(pval)
+df$abs.tscore <- abs(df$t)
+df$ranked.tvals <- order(df$abs.tscore, decreasing = T)
 
 ################# For RNA ######################
-###### Need to figure out what stats I can use to perform analysis
 # load in differentially expressed genes
-df_RNA <- read.csv("./results/data/EdgeR_RNA_sig_genes_min.csv")
+df_RNA <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv")
 
 # use biomaRt to find mapping info between ensembl and entrez gene IDS
 mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
@@ -49,13 +51,18 @@ genes <- getBM(
 
 df <- merge(df_RNA, genes, by.x="X", by.y="ensembl_gene_id")
 df <- df %>% arrange(PValue)
+df$abs.tscore <- abs(df$logFC)
+# df$abs.tscore <- df$LR
 
-################ For Both ###################
-df$abs.tscore <- abs(df$t)
+# remove duplicate entrez gene id two ensembl match to same gene
+df <- df[!df$X == "ENSG00000262102",]
+df <- df[!is.na(df$entrezgene_id),] # 1 missing entrezgene_id
+rownames(df) <- df$entrezgene_id
+colnames(df)[colnames(df) == "entrezgene_id"] <- "entrezid"
+
 df$ranked.tvals <- order(df$abs.tscore, decreasing = T)
 
-# get CpGs mapped to Entrez Gene IDs using missMethyl package
-# df_DMP_sig_genes <- getMappedEntrezIDs(df_DMP_sig$X, array.type = "EPIC")
+################ For Both ###################
 
 # load in datasets
 # Transcription Factor
@@ -64,9 +71,7 @@ tft.sets <- read.gmt('./data/datasets/c3.tft.v7.5.1.entrez.gmt')
 # Reactome
 reactome.sets <- read.gmt('./data/datasets/c2.cp.reactome.v7.5.1.entrez.gmt')
 
-############################### mitoCarta #######################################
-library(readxl)
-
+# mitoCarta
 mt.genes <- as.data.frame(read_excel("./data/datasets/Human.MitoCarta3.0.xlsx", sheet = "B Human All Genes"))
 mt.pathways <- as.data.frame(read_excel("./data/datasets/Human.MitoCarta3.0.xlsx", sheet = "C MitoPathways"))
 
@@ -93,6 +98,7 @@ perform.t.tests <- function(gene.sets, with.gene){
 			in.set <- with.gene[selected.indices,]
 			out.set <- with.gene[-selected.indices,]
 
+			
 			if(nrow(in.set) < 3){ # if this is set to 2, for the ranked.t.stats some of the results will be 0!!!!
 				# print(paste0("Not enough samples for ", set.name))
 			} else{
@@ -115,11 +121,11 @@ perform.t.tests <- function(gene.sets, with.gene){
 	}
 
 all.tft.sets <- perform.t.tests(tft.sets, df)
-# write.csv(all.tft.sets, './results/data/overrepresentation_tft.csv')
+write.csv(all.tft.sets, './results/data/overrepresentation_tft_meth.csv')
 all.reactome.sets <- perform.t.tests(reactome.sets, df)
-# write.csv(all.reactome.sets, './results/data/overrepresentation_reactome.csv')
+write.csv(all.reactome.sets, './results/data/overrepresentation_reactome_meth.csv')
 all.mt.sets <- perform.t.tests(mt.sets, df)
-# write.csv(all.mt.sets, './results/data/overrepresentation_mt.csv')
+write.csv(all.mt.sets, './results/data/overrepresentation_mt_meth.csv')
 
 with.gene.permute <- df
 set.seed(1)

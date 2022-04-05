@@ -59,9 +59,9 @@ design <- model.matrix(~group+batch)
 
 # filtering some of the samples using default settings; read the documentation
 # https://rdrr.io/bioc/edgeR/src/R/filterByExpr.R for source code
-# setting min.count = 0 removes genes with less than 0.5 CPM average across all samples
-# removes genes with total count < 15
-keep <- filterByExpr(y, design=design, group=group, min.count = 0)
+# below article says that from their results 14177 genes are typically expressed in kidneys
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2781110/
+keep <- filterByExpr(y, design=design, group=group)
 y <- y[keep,,keep.lib.sizes=FALSE]
 
 # calculates effective library size using TMM (Trimmed Mean of M values)
@@ -75,33 +75,15 @@ y <- estimateDisp(y,design)
 fit <- glmFit(y,design)
 lrt <- glmLRT(fit,coef=2)
 DE_All <- as.data.frame(topTags(lrt, n=nrow(lrt$table)))
-write.csv(DE_All, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeR_RNA_all_genes_min.csv")
+write.csv(DE_All, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeR_RNA_all_genes.csv")
 
 # max isofrom transcript to gene counts
-# DE_All <- DE_All[DE_All$PValue < 3.53e-6,] # 3.53e-6 is equal to 0.05/14149
-DE_All <- DE_All[DE_All$PValue < 2.74e-6,] # equal to 0.05/18270
+DE_All <- DE_All[DE_All$PValue < 3.53e-6,] # 3.53e-6 is equal to 0.05/14149
 DE_sig <- DE_All[(DE_All$logFC > 2) | (DE_All$logFC < -2),] # filters to 478 genes with 1.5 and 185 with 2
 
-write.csv(DE_sig, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeR_RNA_sig_genes_min.csv")
+write.csv(DE_sig, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeR_RNA_sig_genes.csv")
 
-setwd("results/data")
-# df <- read.csv("SleuthWaldTestResults.csv", header=T) # wald test results
-df <- read.csv("SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
-names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
-
-# use biomaRt to find mapping info between ensembl and entrez gene IDS
-mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
-genes <- getBM(
-  attributes=c("ensembl_gene_id", "chromosome_name", "start_position"),
-  mart=mart,
-  useCache = FALSE)
-
-# merge data with entrez gene ids
-df_anno <- merge(df, genes, by = "ensembl_gene_id")
-df_sig <- filter(df_anno, pval < 3.59e-6) # 3.590149e-06
-df_sig <- df_sig %>% arrange(pval)
-
-#===========================================================================================================================================
+######################## convert Kallisto outputs using package ############################
 # converts kallisto outputs to a table of counts (rows are transcript ids and columns are samples)
 # makes same output as code at top of this file
 
@@ -122,3 +104,21 @@ df_sig <- df_sig %>% arrange(pval)
 #   useCache = FALSE)
 
 # txi1 <- summarizeToGene(txi, genes)
+
+######################## Old sleuth code ##############################
+# setwd("results/data")
+# # df <- read.csv("SleuthWaldTestResults.csv", header=T) # wald test results
+# df <- read.csv("SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
+# names(df)[names(df) == "target_id"] <- "ensembl_gene_id"
+
+# # use biomaRt to find mapping info between ensembl and entrez gene IDS
+# mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
+# genes <- getBM(
+#   attributes=c("ensembl_gene_id", "chromosome_name", "start_position"),
+#   mart=mart,
+#   useCache = FALSE)
+
+# # merge data with entrez gene ids
+# df_anno <- merge(df, genes, by = "ensembl_gene_id")
+# df_sig <- filter(df_anno, pval < 3.59e-6) # 3.590149e-06
+# df_sig <- df_sig %>% arrange(pval)

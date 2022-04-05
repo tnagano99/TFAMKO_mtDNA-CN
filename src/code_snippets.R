@@ -77,7 +77,7 @@ manhattanraw<-function(DMS, filename, sig=NULL){
     main=title,
 		xlab="chromosome",
 		ylab=expression(-log[10]*P),
-		xlim=c(0,max(data$loc + 1,na.rm=T)),cex.lab=1.5,ylim=c(0,ymin1)
+		xlim=c(0,max(data$loc + 1,na.rm=T)),cex.lab=1.5,ylim=c(0,ymin1),
 		col=ifelse(data$mlgpval< sig, (rep(c("black","gray48"),13)), "red" ))
 
   # set y axis labels and scale
@@ -94,7 +94,8 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 	for(i in chr){
 		cat(paste("Now working on chromosome ",i,"\r"))
 		points(data[data$chr==i,"loc"],data[data$chr==i,"mlgpval"],
-			col=ifelse(data[data$chr==i,"mlgpval"] > sig, "red", col[i]),pch=20)
+      # col=if(data[data$chr==i,"mlgpval"] > sig) {"red"}, pch = 20)
+			col=ifelse(data[data$chr==i,"mlgpval"] > sig, "red", ifelse(i %% 2 == 1, "black", "gray48")),pch=20)
 	}
 
 	# add in line for significance

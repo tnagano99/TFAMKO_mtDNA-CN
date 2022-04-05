@@ -60,6 +60,13 @@ KEGG$P.DE_RNA <- format(as.numeric(KEGG$P.DE_RNA), digits=3, scientific=T)
 KEGG$Fisher <- format(as.numeric(KEGG$Fisher), digits=3, scientific=T)
 kable(KEGG[1:10,], caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopKEGG_DMR_RNA_Fisher_EDGER.png")
 
+TFT <- read.csv("TFT_Probe_RNA_Fisher.csv")
+TFT <- TFT[, c("Gene.Set.Name", "P.DE_Meth", "P.DE_RNA", "Fisher")]
+TFT$P.DE_Meth <- format(as.numeric(TFT$P.DE_Meth), digits=3, scientific=T)
+TFT$P.DE_RNA <- format(as.numeric(TFT$P.DE_RNA), digits=3, scientific=T)
+TFT$Fisher <- format(as.numeric(TFT$Fisher), digits=3, scientific=T)
+kable(TFT[1:10,], caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopTFT_DMP_RNA_Fisher.png")
+
 Comb_Enrich <- read.csv("./DMRichR/Functional_Enrichments_DMRichR.csv")
 Comb_Enrich <- Comb_Enrich %>% arrange(p.value)
 Comb_Enrich$X <- NULL
@@ -70,3 +77,12 @@ Comb_Enrich$CIupper <- format(as.numeric(Comb_Enrich$CIupper), digits=3, scienti
 Comb_Enrich$p.value <- format(as.numeric(Comb_Enrich$p.value), digits=3, scientific=T)
 Comb_Enrich$fdr <- format(as.numeric(Comb_Enrich$fdr), digits=3, scientific=T)
 kable(Comb_Enrich, caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopFunctional_DMRichR.png")
+
+overRep <- read.csv("overrepresentation_mt_log.csv")
+overRep <- overRep[,c("Gene.Set.Name", "T.test.pval", "Num.genes.in.set", "Beta", "Confint.Upper", "Confint.Lower")]
+overRep <- overRep %>% arrange(T.test.pval)
+overRep$T.test.pval <- format(as.numeric(overRep$T.test.pval), digits=3, scientific=T)
+overRep$Beta <- format(as.numeric(overRep$Beta), digits=3, scientific=F)
+overRep$Confint.Upper <- format(as.numeric(overRep$Confint.Upper), digits=3, scientific=F)
+overRep$Confint.Lower <- format(as.numeric(overRep$Confint.Lower), digits=3, scientific=F)
+kable(overRep[1:10,], caption="MetricsCompare", digits=4) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=F) %>% save_kable("TopOverRep_mt_RNA.png")

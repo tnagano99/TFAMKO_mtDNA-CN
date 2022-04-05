@@ -38,7 +38,8 @@ RNA <- RNA[, colnames(EPIC)]
 # RNA$TPM05 <- NULL
 
 # read in edgeR all genes to subset RNA counts by only genes from RNA analysis
-genes <- read.csv("./results/data/EdgeR_RNA_all_genes.csv")
+# genes <- read.csv("./results/data/EdgeR_RNA_all_genes.csv")
+genes <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv")
 
 RNA <- subset(RNA, rownames(RNA) %in% genes$X)
 
@@ -98,22 +99,26 @@ pairs <- get.pair(data = data,
                       nearGenes = nearGenes,
                       mode = "supervised",
                       minSubgroupFrac = 1,
-                      permu.size = 100000, # Please set to 100000 to get significant results
+                      permu.size = 100, # Please set to 100000 to get significant results for unsupervised
                       raw.pvalue = 0.05,   
-                      Pe = 0.001, # Please set to 0.001 to get significant results
-                     #  diffExp = TRUE,
+                      Pe = 0.01, # Please set to 0.001 to get significant results for unsupervised
+                      diffExp = TRUE,
                       filter.probes = FALSE, # See preAssociationProbeFiltering function
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL_DMP_CONT_EDGER_MAX", 
+                      label = "ALL_DMP_CONT_EDGER_MAX_SIG", 
                       diff.dir="both",
                       dir.out = './results/data')
 
 save.image("./results/data/ELMER_TFAMKO_INTER_EDGER_MAX.RData")
 
-pairs <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX.pairs.statistic.with.empirical.pvalue.csv")
-pairs2 <- subset(pairs, pairs$FDR < 0.01)
+pairs <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.statistic.with.empirical.pvalue.csv")
+pairs1 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX.all.pairs.statistic.csv")
+pairs2 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX.pairs.significant.csv")
+pairs2 <- pairs2 %>% arrange(FDR)
+pairs2 <- subset(pairs2, Experiment.vs.Control.diff.pvalue < 0.001)
+# log2FC_Experiment.vs.Control is the mean of the gene expression in the experiment vs mean of the gene expression in the control
 
 enriched.motif <- get.enriched.motif(data = data,
                                      probes = pairs2$Probe, 
