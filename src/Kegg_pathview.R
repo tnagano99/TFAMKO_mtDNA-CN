@@ -32,27 +32,9 @@ geneData <- as.numeric(df$beta)
 names(geneData) <- df$entrezid
 pathways <- pathview(gene.data = geneData, pathway.id = "04723", species = "hsa", gene.idtype="entrez", out.suffix = "DMP") 
 
-# differentially methylated probes
-# not doing properly?
-# subset <- as.data.frame(dmps[,c("X","GencodeCompV12_Accession")])
-# expanded <- separate_rows(subset, GencodeCompV12_Accession, sep=";", convert = TRUE)
-# ids <- transpose(as.data.frame(str_split(expanded$GencodeCompV12_Accession, '[.]', n = 2)))
-# expanded$GencodeCompV12_Accession <- NULL
-# expanded$ensembl_gene_id <- ids[,1]
-
-# mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
-# genes <- getBM(
-#   attributes=c("ensembl_gene_id", "entrezgene_id"),
-#   mart=mart,
-#   useCache = FALSE)
-
-# df_anno <- merge(expanded, genes, by = "ensembl_gene_id")
-
-# pathways <- pathview(gene.data = expanded$ensembl_gene_id, pathway.id = "05032", species = "hsa", gene.idtype="ENSEMBLTRANS", out.suffix = "DMP") # 04080 Neuro 04727 GABA synapse 05033 nicotine
-
 # differentially expressed genes
-# df <- read.csv("./results/data/SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", header=T) # Likelihood test results
-df <- read.csv(paste(baseDir, "/results/data/EdgeR_RNA_sig_genes_min.csv", sep=""), header=T) 
+# 04080 Neuro 04727 GABA synapse 05033 nicotine 05032 morphine 04974 protein digest absorb 04723 endocannabinoid
+df <- read.csv(paste(baseDir, "/results/data/EdgeR_RNA_sig_genes.csv", sep=""), header=T) 
 names(df)[names(df) == "X"] <- "ensembl_gene_id"
 
 geneData <- as.numeric(df$logFC)
