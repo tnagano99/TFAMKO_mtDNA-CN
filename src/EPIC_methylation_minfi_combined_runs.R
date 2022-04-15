@@ -61,9 +61,7 @@ mSetSqFlt <- mSetSqFlt[pids,]
 # mSetSqFlt: Before: 807862 After: 781118
 mSetSqFlt <- dropLociWithSnps(mSetSqFlt, snps = c("CpG"))
 
-# need to get out beta or m values
-# should we be using m-values or beta values
-# https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-11-587
+# get beta and m values
 beta <- as.data.frame(getBeta(mSetSqFlt))
 mVal <- as.data.frame(getM(mSetSqFlt))
 
@@ -133,7 +131,6 @@ write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
 
 Type <- factor(targets$Group) # knockout or normal
 Batch <- factor(targets$Slide) # run 1 or run 2 based on slide number
-# ID <- factor(substr(targets$Decode, 1, nchar(targets$Decode)-2)) # specify the 6 different samples (3 KO 3 NC)
 design <- model.matrix(~Type+Batch) # specify design matrix Type and ID and linearly dependent so using Type and Batch as predictors explanation is below
 
 #################################

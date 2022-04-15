@@ -183,5 +183,48 @@ all.results <- plyr::rbind.fill(sig.tft.results, sig.reactome.results)
 # save(all.results, file = 'sig.pathways.nopseudo.permutecut.rds')
 write.csv(all.results, "./results/data/tft_reactome_mito_meth.csv")
 
+############################### mitoCarta genes ##############################
+# Find list of significant genes that are in mitoCarta
 
+# read in RNA sig genes
+df_RNA <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv")
 
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
+genes <- getBM(
+  attributes=c("ensembl_gene_id", "entrezgene_id"),
+  mart=mart,
+  useCache = FALSE)
+
+df_RNA <- merge(df_RNA, genes, by.x="X", by.y="ensembl_gene_id")
+
+mt.genes <- as.data.frame(read_excel("./data/datasets/Human.MitoCarta3.0.xlsx", sheet = "A Human MitoCarta3.0"))
+
+# get data for output
+sig_genes <- df_RNA$entrezgene_id
+sig_genes <- sig_genes[!is.na(sig_genes)]
+mt_genes <- mt.genes$HumanGeneID
+mt_genes <- mt_genes[!is.na(mt_genes)]
+mt_gene_symbol <- mt.genes$Symbol
+mt_gene_symbol <- mt_gene_symbol[!is.na(mt_gene_symbol)]
+mt_gene_desc <- mt.genes$Description
+mt_gene_desc <- mt_gene_desc[!is.na(mt_gene_desc)]
+
+ensembl <- character(length(sig_genes))
+symbol <- character(length(sig_genes))
+desc <- character(length(sig_genes))
+for (i in 1:length(sig_genes)){
+    for (j in 1:length(mt_genes)){
+        if (sig_genes[i] == mt_genes[j]) {
+            ensembl[i] = mt_genes[j]
+			symbol[i] = mt_gene_symbol[j]
+			desc[i] = mt_gene_desc[j]
+        } 
+    }
+}
+
+ensembl <- ensembl[!ensembl == ""]
+symbol <- symbol[!symbol == ""]
+desc <- desc[!desc == ""]
+df <- data.frame(ensembl, symbol, desc)
+colnames(df) <- c("Entrez_GeneID", "Symbol", "Description")
+write.csv(df, "./results/data/mitoCarta_sig_genes.csv")

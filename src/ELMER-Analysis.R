@@ -23,23 +23,14 @@ RNA <- read.csv("./results/data/EdgeRGeneEstCountsMax.csv") # EdgeR
 row.names(RNA) <- RNA$X
 RNA$X <- NULL
 
-# for sleuth
-# colnames(RNA) <- c("TFAM_KO_Clone_11_1", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_1", "TFAM_KO_Clone_5_2", "TFAM_KO_Clone_6_1", "TFAM_KO_Clone_6_2", "HEK293T_NC.1_1", "HEK293T_NC.1_2", "HEK293T_NC.2_1", "HEK293T_NC.2_2", "HEK293T_NC.3_1", "HEK293T_NC.3_2")
-
 # for edgeR
 cols <- c("HEK293T_NC.1_1", "TFAM_KO_Clone_6_1", "HEK293T_NC.3_1", "TFAM_KO_Clone_11_1", "TFAM_KO_Clone_5_1", "HEK293T_NC.2_1", "HEK293T_NC.1_2", "TFAM_KO_Clone_6_2", "HEK293T_NC.3_2", "TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_2", "HEK293T_NC.2_2")
 colnames(RNA) <- cols
 
 RNA <- RNA[, colnames(EPIC)]
 
-# Remove genes with TPM < 0.5 in >49% of samples
-# RNA$TPM05 <- rowSums(RNA)
-# RNA <- subset(RNA, RNA$TPM05 < 7)
-# RNA$TPM05 <- NULL
-
 # read in edgeR all genes to subset RNA counts by only genes from RNA analysis
 genes <- read.csv("./results/data/EdgeR_RNA_all_genes.csv")
-genes <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv")
 
 RNA <- subset(RNA, rownames(RNA) %in% genes$X)
 
@@ -66,23 +57,7 @@ data <- createMAE(exp = RNA,
 
 ############################# ELMER find Probe-Gene Pairs ##########################
 
-# find significant DMPs using ELMER
-# not used in this analysis
-# feeding signifcant from DMP analysis
-# sig.diff <- get.diff.meth(data = data, 
-#                           group.col = "GroupLabel",
-#                           group1 =  "Control",
-#                           group2 = "Experiment",
-#                           mode = "supervised",
-#                           minSubgroupFrac = 1, # if supervised mode set to 1
-#                           sig.dif = 0,
-#                           diff.dir = "both",
-#                           cores = 1,  
-#                           pvalue = 0.05,
-#                           save = TRUE
-#                           )
-
-# read in DMP results to feed significant DMPs into ELMER
+# read in DMP results to feed significant DMPs from previous results into ELMER
 sig_cpgs <- as.data.frame(read.csv("./results/data/dmp_cont.csv"))
 sig_cpgs <- filter(sig_cpgs, pval < 1e-7)
 
@@ -107,20 +82,25 @@ pairs <- get.pair(data = data,
                       filter.percentage = 0.05,
                       filter.portion = 0.3,
                       cores = 1,
-                      label = "ALL_DMP_CONT_EDGER_MAX_5", 
+                      label = "ALL_DMP_CONT_EDGER_MAX_SIG", 
                       diff.dir="both",
                       dir.out = './results/data')
 
 save.image("./results/data/ELMER_TFAMKO_INTER_EDGER_MAX.RData")
 
-pairs <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.statistic.with.empirical.pvalue.csv")
-pairs1 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.all.pairs.statistic.csv")
+# pairs <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.statistic.with.empirical.pvalue.csv")
+# pairs1 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.all.pairs.statistic.csv")
+
+# read in significant Gene-Probe pairs
 pairs2 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.significant.csv")
+
+# filter for p-value for differential expression and max distance of 1Mb
 pairs2 <- subset(pairs2, Experiment.vs.Control.diff.pvalue < 0.001)
 pairs2 <- subset(pairs2, abs(Distance) < 1e6)
 write.csv(pairs2,"./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.significant.filtered.csv")
 # log2FC_Experiment.vs.Control is the mean of the gene expression in the experiment vs mean of the gene expression in the control
 
+# no enriched motifs shown
 enriched.motif <- get.enriched.motif(data = data,
                                      probes = pairs2$Probe, 
                                      label = "ALL_DMP_CONT_EDGER_MAX",
@@ -144,14 +124,12 @@ save.image("./results/data/ELMER_TFAMKO_FINAL_EDGER_MAX.RData")
 
 ################ ELMER Visualizations #################
 
-# run the below block
+# run the below block with CpG and gene_id of interest
 CpG <- "cg05663891"
 gene_id <- c("ENSG00000197134")
 scatter.plot(data = data,
        byPair = list(probe = c(CpG), gene = gene_id), 
        category = "GroupLabel", save = TRUE, lm_line = TRUE, dir.out = "./results/plots/ELMER")
-
-# need to again check if you see this in the other direction ... all 0's in TFAM and expression in controls
 
 # Create scatterplots of each of Top 20 CpGs with 20 closest genes
 probes20 <- sig_cpgs$X[1:20]
@@ -205,13 +183,6 @@ heatmapPairs(data = data,
              group2 = "Control",
              pairs = pairs2,
              filename =  "HeatmapPairs.pdf")
-             
-# load("getTF.ALL.TFs.with.motif.pvalue.rda")
-# motif <- colnames(TF.meth.cor)[1]
-# TF.rank.plot(motif.pvalue = TF.meth.cor, 
-#              motif = motif,
-#              save = TRUE,
-#              dir.out = ".results/plots/ELMER") 
         
 # check how many genes in EdgeR overlap with ELMER
 # 133 of 185 significant genes from RNA overlap with ELMER analysis

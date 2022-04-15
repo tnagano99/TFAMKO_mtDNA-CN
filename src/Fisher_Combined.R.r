@@ -74,7 +74,7 @@ write.csv(kegg_all, paste(baseDir, "/results/data/KEGG_Region_RNA_Fisher_EDGER.c
 tft <- as.data.frame(read.csv(paste(baseDir, "/results/data/overrepresentation_tft_meth.csv", sep = ""))) 
 tft_rna <- as.data.frame(read.csv(paste(baseDir, "/results/data/overrepresentation_tft_log.csv", sep = "")))
 
-# read in csv data for Reactome Meth and RNA results
+# reactome no overlapping pathways
 # reactome <- as.data.frame(read.csv(paste(baseDir, "/results/data/overrepresentation_reactome_meth.csv", sep = "")))
 # reactome_rna <- as.data.frame(read.csv(paste(baseDir, "/results/data/overrepresentation_reactome_log.csv", sep = "")))
 

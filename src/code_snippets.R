@@ -1,20 +1,6 @@
 # Code snippets in this file belong to Dr. Castellani of the Castellani Lab at Schulich School of Medicine and Dentistry at Western University
 
 # Code to Create Manhattan plots
-
-EPIC_CC <- read.table("/dcs01/arking/arkinglab/active/projects/aric/epigenetics/ccastell/Whites/EPICResults2.txt", header=T)
-setwd("/dcs01/arking/arkinglab/active/projects/aric/epigenetics/ccastell/EPIC/")
-annot <- read.csv("MethylationEPIC_15073387_v-1-0.csv", skip=7)
-
-mergeManhattan <- merge(EPIC_CC, annot, by.x="row.names", by.y="IlmnID")
-DMS <- mergeManhattan
-
-colnames(DMS)[2] <- "estimate"
-colnames(DMS)[5] <- "P.Value"
-colnames(DMS)[16] <- "chr"
-colnames(DMS)[17] <- "start"
-
-
 manhattanraw<-function(DMS, filename, sig=NULL){
 	# DMS needs to be a dataframe with columns 
   # P.Value: the p-values of the differentially methylated sites
@@ -84,11 +70,11 @@ manhattanraw<-function(DMS, filename, sig=NULL){
 	axis(side=2, at=seq(from=0,to=ymin1,by=2), labels=seq(from=0,to=ymin1,by=2), tick=T, cex.axis=0.9, las=1)
 
   # set x axis labels and scale
-	axis(side=1, at=phy.med[c(1:22)], labels=c(1:22), cex.axis=0.8)
+	axis(side=1, at=phy.med[c(1:22)], labels=c(1:22), cex.axis=0.5)
 
   # fill margins with white rectangles
-	rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
-		col = "white")
+	# rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
+	# 	col = "white")
 
   # output to console for updates
 	for(i in chr){

@@ -1,7 +1,3 @@
-#### NOTE: code below line 317S is for the analysis
-#### DMRichR package not in Bioconductor and cannot be installed on compute canada due to loading standard bioconductor bundle 3.14 into workspace
-#### run this code locally
-
 ## DMRichR Functions by Ben Laufer ---------------------------------------------
 #  https://github.com/ben-laufer/DMRichR
 
@@ -171,7 +167,6 @@ DMRichCpG <- function(sigRegions = sigRegions,
 #' @export DMRichPlot
 #' 
 
-# updated function from source data parameter requires Annotation, OR and fdr columns
 DMRichPlot <- function(data = data,
                        type = c("CpG", "genic"),
                        multi = FALSE){
@@ -188,8 +183,8 @@ DMRichPlot <- function(data = data,
     x_label <- "Functional Genomic Elements"
   }
   
-  # updates Plot title depending on CpG or Genic
-  plot_title <- "Functional Region Enrichment"
+  # sets plot title
+  plot_title <- "Functional Region Enrichments"
   
   ##########
   
@@ -212,7 +207,7 @@ DMRichPlot <- function(data = data,
     labs(y = "Fold Enrichment",
          x = x_label, # updated depending on CpG or genic
          title = plot_title, # updated depending on CpG or genic
-         fill = "-log10(FDR)" # updated set legend title
+         fill = "-log10(FDR)"
     ) +
     theme_classic() + 
     theme(plot.title = element_text(size = 24, hjust = 0.5, face = "bold"), # added to set plot title size and center
@@ -220,7 +215,7 @@ DMRichPlot <- function(data = data,
           axis.title = element_text(size = 16),
           strip.text = element_text(size = 16),
           legend.text = element_text(size = 14),
-          legend.position = "right"
+          legend.position = "right" # updated from "none"
     ) +
     scale_y_continuous(expand = c(0.1, 0.1)) + 
     scale_x_discrete(limits = data$Annotation %>%
@@ -317,7 +312,9 @@ DMparseR <- function(direction = c("All DMRs", "Hypermethylated DMRs", "Hypometh
     return()
 }
 
-####################################################################################
+
+
+
 
 ## Load in packages ------------------------------------------------------------
 library(simpleCache)
@@ -335,18 +332,19 @@ library(GenomeInfoDb)
 library(forcats)
 library(plyranges)
 library(stats)
+library(DMRichR)
 library(ggplot2)
 library(wesanderson)
-
-# Update baseDir to proper location
-baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
-setwd(baseDir)
+library(xlsx)
 
 # Load in annotation file
 ann <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 
+
 ## Load in DMPs --------------------------------------------------------------
-dmps <- read.csv("./results/data/dmp_cont.csv")
+setwd('C:/Users/tnaga/Documents/R_Scripts/Thesis/DMRichR')
+
+dmps <- read.csv("dmp_cont.csv")
 tmp <- dmps$X
 rownames(dmps) <- dmps$X
 dmps$X <- NULL
@@ -379,7 +377,7 @@ RegionEnrichment <- DMRichGenic(sigStats, statsbed,
                                 "org.Hs.eg.db")
 
 Region_plot <- DMRichPlot(RegionEnrichment, "genic", FALSE)
-pdf("./results/plots/DMRichR_Gene_Region_Plot.pdf", width=12)
+pdf("Gene_Region_Plot.pdf", width=12)
 Region_plot
 dev.off()
 
@@ -387,23 +385,56 @@ dev.off()
 CpG_annotation <- DMRichCpG(sigStats, statsbed, "hg19")
 
 CpG_plot <- DMRichPlot(CpG_annotation, "CpG", FALSE)
-pdf("./results/plots/DMRichR_CpG_Annotation_Plot.pdf", width=12)
+pdf("CpG_Annotation_Plot.pdf", width=12)
 CpG_plot
 dev.off()
 
 ## Combined Enrichments Plots ----------------------------------------
 
+# figure out way to add Chromatin marks to plot after chromHMM
+
 CpG_annotation <- as.data.frame(CpG_annotation)
+# write_xlsx(CpG_annotation, "./DMRichments/All DMRs_CpG_enrichments.xlsx")
 
 RegionEnrichment <- as.data.frame(RegionEnrichment)
+# write_xlsx(RegionEnrichment, "./DMRichments/All DMRs_genic_enrichments.xlsx")
+
+# from .tsv output of chromHMM in DMRichR_ChromHMM.R
+ChromHMMEnrichment <- read.table(file = 'allEnrichments_ChromHMM.tsv', sep = '\t', header = TRUE)
+
+ChromHMMEnrichment <- ChromHMMEnrichment %>% dplyr::mutate(antibody = dplyr::recode_factor(antibody,
+                                              "1_TssA" = "Active TSS",
+                                              "2_TssAFlnk" = "Flanking Active TSS",
+                                              "3_TxFlnk" = "Transcription at Gene 5' and 3'",
+                                              "4_Tx" = "Strong Transcription",
+                                              "5_TxWk" = "Weak Transcription",
+                                              "6_EnhG"= "Genic Enhancers",
+                                              "7_Enh" = "Enhancers",
+                                              "8_ZNF/Rpts" = "ZNF Genes & Repeats",
+                                              "9_Het" = "Heterochromatin",
+                                              "10_TssBiv" = "Bivalent/Poised TSS",
+                                              "11_BivFlnk" = "Flanking Bivalent TSS/Enhancer",
+                                              "12_EnhBiv" = "Bivalent Enhancer",
+                                              "13_ReprPC" = "Repressed PolyComb",
+                                              "14_ReprPCWk" = "Weak Repressed PolyComb",
+                                              "15_Quies" = "Quiescent/Low"
+)
+)
+
+ChromHMMEnrichment <- ChromHMMEnrichment[,c('antibody', 'oddsRatio', 'qValue')]
+colnames(ChromHMMEnrichment) <- c('Annotation', 'OR', 'fdr')
 
 # combine both enrichments into single tibble object
 CombinedEnrichment <- rbind(CpG_annotation, RegionEnrichment)
+CombinedEnrichment <- CombinedEnrichment[, c('Annotation', 'OR', 'fdr')]
+CombinedEnrichment <- rbind(CombinedEnrichment, ChromHMMEnrichment)
 CombinedEnrichment$Direction <- "all"
-CombinedEnrichment <- CombinedEnrichment[, c('Direction', 'Annotation', 'OR', 'fdr')]
 CombinedEnrichment <- as_tibble(CombinedEnrichment)
 
+# use the genic option to plot
 CombinedPlot <- DMRichPlot(CombinedEnrichment, "genic", TRUE)
-pdf("./results/plots/DMRichR_Combined_Annotation_Plot.pdf", width=12)
+pdf("Combined_Annotation_Plot_chromHMM.pdf", width=12)
 CombinedPlot
 dev.off()
+
+

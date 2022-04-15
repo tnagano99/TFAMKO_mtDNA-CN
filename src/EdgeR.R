@@ -45,12 +45,26 @@ df$"df$ensembl_gene_id" <- NULL
 
 # write.csv(df, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeRGeneEstCountsMax.csv")
 df <- read.csv("/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeRGeneEstCountsMax.csv")
+# df <- read.csv("/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/TXImportGeneEstCountsMax.csv")
 rownames(df) <- df$X
 df$X <- NULL
 
 # create DGEList object
 group <- factor(metaData$condition)
 y <- DGEList(counts=df,group=group)
+
+# check distribution of data using histogram
+# libSize <- y$samples$lib.size * y$samples$norm.factors
+# medLib <- median(libSize)
+# CPM.cutoff <- 10 / medLib * 1e6
+# CPMS <- cpm(y, lib.size = libSize)
+# sumCPMS <- rowSums(CPMS)
+# logCPMS <- log2(sumCPMS)
+# logCPMS <- as.data.frame(logCPMS)
+# logCPMS <- filter(logCPMS, logCPMS > -10)
+# pdf(paste0("./results/plots/EdgeR/histogram.pdf"))
+# hist(logCPMS$logCPMS, breaks = 120)
+# dev.off()
 
 # create design matrix
 batch <- metaData$LANE # test batch as covariate
@@ -79,6 +93,9 @@ write.csv(DE_All, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/re
 
 # max isofrom transcript to gene counts
 DE_All <- DE_All[DE_All$PValue < 3.53e-6,] # 3.53e-6 is equal to 0.05/14149
+DE_sig <- DE_All[(DE_All$logFC > 2) | (DE_All$logFC < -2),] # filters to 179 genes with logFC > 2
+
+DE_All <- DE_All[DE_All$PValue < 3.44e-6,] # 3.44e-6 is equal to 0.05/14525
 DE_sig <- DE_All[(DE_All$logFC > 2) | (DE_All$logFC < -2),] # filters to 478 genes with 1.5 and 185 with 2
 
 write.csv(DE_sig, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/EdgeR_RNA_sig_genes.csv")
@@ -104,6 +121,8 @@ write.csv(DE_sig, "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/re
 #   useCache = FALSE)
 
 # txi1 <- summarizeToGene(txi, genes)
+
+# write.csv(txi1[[2]], "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN/results/data/TXImportGeneEstCountsMax.csv")
 
 ######################## Old sleuth code ##############################
 # setwd("results/data")

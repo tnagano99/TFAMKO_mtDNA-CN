@@ -30,11 +30,6 @@ colnames(merged)[colnames(merged) == "pos"] <- "start"
 
 manhattanraw(DMS=merged, filename="DMP", sig=7)
 
-# Manhattan plot for RNA data Sleuth
-lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/SleuthAllGenesAnnotatedRNASeqResultsGeneWise_cleaned.csv", sep = "")))
-colnames(lmerResults)[colnames(lmerResults) == "pval"] <- "P.Value" # for dmpfinder using mtDNA-CN as continuous
-manhattanraw(DMS=lmerResults, filename="RNA", sig=5.445)
-
 # Manhattan plot for RNA data EdgeR
 mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
 genes <- getBM(
@@ -50,7 +45,7 @@ colnames(merged)[colnames(merged) == "chromosome_name"] <- "chr"
 colnames(merged)[colnames(merged) == "start_position"] <- "start"
 chr_filt <- as.character(1:22)
 merged <- filter(merged, merged$chr %in% chr_filt)
-manhattanraw(DMS=merged, filename="RNA_EdgeR", sig=5.452) # 14149 = 5.452 18270 = 5.562
+manhattanraw(DMS=merged, filename="RNA_EdgeR", sig=5.452)
 
 ############ DMRranges Manhattan plot ######################
 

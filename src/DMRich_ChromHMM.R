@@ -17,7 +17,7 @@ chromHMM <- function(sigRegions = sigRegions,
                      regions = regions,
                      cores = cores){
   message("Performing ChromHMM enrichment testing")
-  chromHMM <- LOLA::loadRegionDB(dbLocation = "/share/lasallelab/programs/LOLA/hg19",
+  chromHMM <- LOLA::loadRegionDB(dbLocation = "./DMRichR/all.mnemonics.bedFiles",
                                  useCache = TRUE,
                                  limit = NULL,
                                  collections = "Roadmap_ChromHMM") %>%
@@ -34,20 +34,20 @@ chromHMM <- function(sigRegions = sigRegions,
     dplyr::select(oddsRatio, cellType, tissue, antibody) %>%
     dplyr::mutate(antibody = as.factor(antibody)) %>% 
     dplyr::mutate(antibody = dplyr::recode_factor(antibody,
-                                                  "01_TssA" = "Active TSS",
-                                                  "02_TssAFlnk" = "Flanking Active TSS",
-                                                  "03_TxFlnk" = "Transcription at Gene 5' and 3'",
-                                                  "04_Tx" = "Strong Transcription",
-                                                  "05_TxWk" = "Weak Transcription",
-                                                  "06_EnhG"= "Genic Enhancers",
-                                                  "07_Enh" = "Enhancers",
-                                                  "08_ZnfRpts" = "ZNF Genes & Repeats",
-                                                  "09_Het" = "Heterochromatin",
+                                                  "1_TssA" = "Active TSS",
+                                                  "2_TssAFlnk" = "Flanking Active TSS",
+                                                  "3_TxFlnk" = "Transcription at Gene 5' and 3'",
+                                                  "4_Tx" = "Strong Transcription",
+                                                  "5_TxWk" = "Weak Transcription",
+                                                  "6_EnhG"= "Genic Enhancers",
+                                                  "7_Enh" = "Enhancers",
+                                                  "8_ZNF/Rpts" = "ZNF Genes & Repeats",
+                                                  "9_Het" = "Heterochromatin",
                                                   "10_TssBiv" = "Bivalent/Poised TSS",
                                                   "11_BivFlnk" = "Flanking Bivalent TSS/Enhancer",
                                                   "12_EnhBiv" = "Bivalent Enhancer",
                                                   "13_ReprPC" = "Repressed PolyComb",
-                                                  "14_ReprPCwk" = "Weak Repressed PolyComb",
+                                                  "14_ReprPCWk" = "Weak Repressed PolyComb",
                                                   "15_Quies" = "Quiescent/Low"
     )
     ) %>%
@@ -160,7 +160,7 @@ roadmap <- function(sigRegions = sigRegions,
                     regions = regions,
                     cores = cores){
   message("Performing Roadmap epigenomics enrichment testing")
-  # update dbLocation to hg19 folder in data/roadmap_epigenomics
+  # update dbLocation to hg19 folder in data/roadmap_epigenomics/hg19
   roadmap <- LOLA::loadRegionDB(dbLocation = "./DMRichR/LOLARoadmap_180423/hg19",
                                 useCache = TRUE, 
                                 limit = NULL,
@@ -175,7 +175,7 @@ roadmap <- function(sigRegions = sigRegions,
                                   outFolder = "RoadmapEpigenomics",
                                   includeSplits = FALSE) %>%
     dplyr::as_tibble() %>%
-    # update hg19 folder in data/roadmap_epigenomics
+    # update hg19 folder in data/roadmap_epigenomics/hg19
     dplyr::left_join(readr::read_tsv("./DMRichR/LOLARoadmap_180423/hg19/roadmap_epigenomics/index.txt"),
                      by = "filename") %>%
     dplyr::select(oddsRatio, antibody.x, donor, anatomy) %>%
@@ -309,9 +309,7 @@ dmrList <- function(sigRegions = sigRegions){
 
 ##################################################################################
 
-# roadmap complete
-# need to know how to configure database for ChromHMM functions
-
+########################### Roadmap Epigenomics #################################
 library(dplyr)
 library(tidyr)
 library(LOLA)
@@ -364,3 +362,61 @@ sigStats <- makeGRangesFromDataFrame(sigStats,
                                      start.field="pos", end.field="pos2", ignore.strand=T)
 
 roadmapEnrichments <- roadmap(sigStats, statsbed, cores = 1)
+
+####################### ChromHMM ###############################################
+
+chromHMMEnrichments <- chromHMM(sigStats, statsbed, cores = 1)
+
+####################### Data prep for chromHMM #################################
+
+# unzip all gz files to get bed files
+# set working directory to all gz files
+library(R.utils)
+
+filenames <- dir()
+for (i in 1:length(filenames)){
+  gunzip(filenames[i])
+}
+
+# read in each bed file and append to dataframe
+filenames <- dir()
+df <- data.frame(matrix(ncol = 4, nrow = 0))
+
+for (i in 1:length(filenames)){
+  epi <- as.data.frame(read.table(filenames[i], header = FALSE, sep = "\t", quote=""))
+  df <- rbind(df, epi)
+}
+colnames(df) <- c("chr", "start", "end", "group")
+
+# create subsets of each group
+
+groups <- c("1_TssA","2_TssAFlnk","3_TxFlnk","4_Tx","5_TxWk","6_EnhG","7_Enh","8_ZNF/Rpts","9_Het",
+            "10_TssBiv","11_BivFlnk","12_EnhBiv","13_ReprPC","14_ReprPCWk","15_Quies")
+
+ret <- GRangesList()
+size <- numeric(length = length(groups))
+for (i in 1:length(groups)){
+  cat(i)
+  epi <- df[df$group == groups[i],]
+  size[i] <- nrow(epi)
+  epibed <- makeGRangesFromDataFrame(epi, start.field="start", end.field="end")
+  ret <- c(ret, GRangesList(epibed))
+}
+save(ret, file = "Roadmap_ChromHMM.Rdata")
+
+# use data to create annotation sheet
+df_anno <- data.frame(matrix(ncol = 9, nrow = 15))
+colnames(df_anno) <- c("filename","cellType","description","tissue","dataSource","antibody","treatment","collection","size")
+
+df_anno$filename <- groups
+df_anno$collection <- "Roadmap_ChromHMM"
+df_anno$size <- size
+df_anno$antibody <- groups
+df_anno$description <- paste(df_anno$collection, df_anno$antibody, sep = " ")
+df_anno$cellType <- as.character(df_anno$cellType)
+df_anno$tissue <- as.character(df_anno$tissue)
+df_anno$dataSource <- as.character(df_anno$dataSource)
+df_anno$treatment <- as.character(df_anno$treatment)
+
+ret <- df_anno
+save(ret, file = "Roadmap_ChromHMM_files.RData")
