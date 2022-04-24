@@ -30,13 +30,14 @@ colnames(RNA) <- cols
 RNA <- RNA[, colnames(EPIC)]
 
 # read in edgeR all genes to subset RNA counts by only genes from RNA analysis
-genes <- read.csv("./results/data/EdgeR_RNA_all_genes.csv")
+genes <- read.csv("./results/data/EdgeR_RNA_sig_genes.csv")
 
 RNA <- subset(RNA, rownames(RNA) %in% genes$X)
 
 # create dataframe to specify sample group Experiment (KO), Control (NC)
 primary <- colnames(RNA)
-GroupLabel <- c("Experiment", "Control", "Experiment", "Control", "Experiment", "Control", "Control", "Control", "Control", "Experiment", "Experiment", "Experiment")
+# GroupLabel <- c("Experiment", "Control", "Experiment", "Control", "Experiment", "Control", "Control", "Control", "Control", "Experiment", "Experiment", "Experiment")
+GroupLabel <- c("Control", "Experiment", "Control", "Experiment", "Control", "Experiment", "Experiment", "Experiment", "Experiment", "Control", "Control", "Control")
 Sample <- cbind(primary, GroupLabel)
 Sample <- as.data.frame(Sample)
 row.names(Sample) <- Sample$primary
@@ -69,8 +70,8 @@ nearGenes <- GetNearGenes(data = data,
 # look at documentation: add diffExp = TRUE
 pairs <- get.pair(data = data,
                       group.col = "GroupLabel",
-                      group1 =  "Control",
-                      group2 = "Experiment",
+                      group1 =  "Experiment",
+                      group2 = "Control",
                       nearGenes = nearGenes,
                       mode = "supervised",
                       minSubgroupFrac = 1,
@@ -86,16 +87,16 @@ pairs <- get.pair(data = data,
                       diff.dir="both",
                       dir.out = './results/data')
 
-save.image("./results/data/ELMER_TFAMKO_INTER_EDGER_MAX.RData")
+save.image("./results/data/ELMER_TFAMKO_INTER_EDGER_MAX_SIG.RData")
 
 # pairs <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.statistic.with.empirical.pvalue.csv")
-# pairs1 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.all.pairs.statistic.csv")
+pairs1 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.all.pairs.statistic.csv")
 
 # read in significant Gene-Probe pairs
 pairs2 <- read.csv("./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.significant.csv")
 
 # filter for p-value for differential expression and max distance of 1Mb
-pairs2 <- subset(pairs2, Experiment.vs.Control.diff.pvalue < 0.001)
+pairs2 <- subset(pairs2, Control.vs.Experiment.diff.pvalue < 0.001)
 pairs2 <- subset(pairs2, abs(Distance) < 1e6)
 write.csv(pairs2,"./results/data/getPair.ALL_DMP_CONT_EDGER_MAX_SIG.pairs.significant.filtered.csv")
 # log2FC_Experiment.vs.Control is the mean of the gene expression in the experiment vs mean of the gene expression in the control
@@ -125,8 +126,8 @@ save.image("./results/data/ELMER_TFAMKO_FINAL_EDGER_MAX.RData")
 ################ ELMER Visualizations #################
 
 # run the below block with CpG and gene_id of interest
-CpG <- "cg05663891"
-gene_id <- c("ENSG00000197134")
+CpG <- "cg00078221"
+gene_id <- c("ENSG00000243056")
 scatter.plot(data = data,
        byPair = list(probe = c(CpG), gene = gene_id), 
        category = "GroupLabel", save = TRUE, lm_line = TRUE, dir.out = "./results/plots/ELMER")

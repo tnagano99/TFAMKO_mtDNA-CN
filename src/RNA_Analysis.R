@@ -16,7 +16,7 @@ names(df)[names(df) == "X"] <- "ensembl_gene_id"
 # use biomaRt to find mapping info between ensembl and entrez gene IDS
 mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl")) # if unresponsive run: httr::set_config(httr::config(ssl_verifypeer = FALSE))
 genes <- getBM(
-  attributes=c("ensembl_gene_id", "entrezgene_id"),
+  attributes=c("ensembl_gene_id", "entrezgene_id", "hgnc_symbol"),
   mart=mart,
   useCache = FALSE)
 

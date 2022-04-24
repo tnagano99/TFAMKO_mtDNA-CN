@@ -40,24 +40,21 @@ This project has four main folders:
 
 data
 - datasets
+    - contains the Reactome Pathway, Transcription Factor, and MitoCarta3.0 gene sets and the methylation annotation file provided by Illumina
 - fasta
+    - contains the raw fastq files generated from RNA-seq
 - Roadmap_ChromHMM
+    - contains the formatted 15-state Chromatin model data taken from here **https://egg2.wustl.edu/roadmap/web_portal/chr_state_learning.html#core_15state**
 - roadmap_epigenomics
+    contains the most recent 5 related histone marks from 127 reference epigenomes taken from **https://databio.org/regiondb** using the latest databases link on the page
 - run_combined
+    - contains the raw .idat files from the EPIC Array for the methylation data
 
 doc
 
 results
 - data
-    - CpG_mtDNA-CN
-    - DMRcate
-    - DMRichR
-    - EdgeR
-    - ELMER
-    - manhattan
-    - minfi
-    - pathview
-    - QQ_plots
+    - All output tables and data saved here
 - plots
     - CpG_mtDNA-CN
     - DMRcate
@@ -86,6 +83,7 @@ Note: EPIC_methylation_minfi.R was previously used when running normalization an
 2. DMPFinder
     - determines differentially methylated sites
     - generates summary stats saved in **dmp_cont.csv**
+    - **DMPs_anno.csv** is annotated CpGs to genes from missMethyl
 3. DMRcate
     - determines differentially methylated regions
     - generates summary stats saved in **DMRS_anno.csv**
@@ -96,6 +94,9 @@ Note: EPIC_methylation_minfi.R was previously used when running normalization an
 
 1. Convert Kallisto Output
     - take outputs from Kallisto and convert to gene-level counts
+    - creates **EdgeRTranscriptEstCounts.csv** for transcript level counts
+    - creates **EdgeRGeneEstCounts.csv** (sums all transcript isoforms) and **EdgeRGeneEstCountsMax.csv** (takes max if multiple transcript isoforms)
+    - tha max counts file is used in EdgeR
 2. EdgeR
     - performs quality control and normalization for library size
     - determines differentially expressed genes
@@ -135,19 +136,20 @@ Note the ELMER-Analysis-DMP-Cont.R was used in ELMER.sh to run the script as a j
 
 1. pathview
     - creates annotated visualizations of KEGG pathways with amount of methylation or gene expression between knockout and control
-    - creates all pathview plots; plots named according to KEGG identifier
+    - creates all pathview plots; plots named according to KEGG identifier **hsa#####.png**
 
 **Feature_Overepresentation**
 
 1. Transcription Factor, Reactome, MitoCarta
     - perform functional enrichment analyses for differentially methylated sites, differentially methylated regions and differentially expressed genes in the Transcription Factor and Reactome databases taken from MSigDB and the mitoCarta 3.0 database
-    - outputs all results with the name overrepresentation*.csv
+    - outputs all results with the name **overrepresentation*.csv** (ends with meth is methylation and ends with log is RNA using logFC)
 
 **Fisher_Combined.R**
 
 1. metap
     - use the metap function to perform Fisher's Combined test to meta-analyze the methylation and RNA functional enrichment results together
     - performed for GO, KEGG, Transcription Factor, Reactome and mitoCarta
+    - all output files contain **Fisher** in file name
 
 **DMRich and DMRich_ChromHMM**
 
@@ -158,11 +160,14 @@ Note the ELMER-Analysis-DMP-Cont.R was used in ELMER.sh to run the script as a j
 2. ChromHMM and Roadmap Epigenomics
     - perform functional enrichments of epigenomic elements using the methylation data
     - checks for enrichment in 15-state chromatin state model and the related 5 core histone modifications
+    - **allEnrichments_chromHMM.tsv** contain the results of DMRich (CpG and Genic) and ChromHMM
+    - **allEnrichments.tsv** contains the Roadmap Epigenomics results
+    - all plots are in the plots/DMRichR folder
 
 **format_tables**
 
 1. Format all tables
-    - creates nicely formatted tables for all outputs included in powerpoints in doc/thesis_presentation.ppt
+    - creates nicely formatted tables for all outputs included in powerpoints in **doc/Oral_presentation.pptx**
 
 **code_snippets**
 
@@ -184,10 +189,10 @@ Note the ELMER-Analysis-DMP-Cont.R was used in ELMER.sh to run the script as a j
 **plots**
 
 1. Manhattan Plots
-    - uses the manhattanraw function from code_snippets.R to generate manhattan plots
+    - uses the manhattanraw function from code_snippets.R to generate manhattan plots in plots/manhattan
 
 2. QQ Plots
-    - uses the qq function from qqman to generate qq-plots
+    - uses the qq function from qqman to generate qq-plots saved in plots/QQ_plots
 
 **No Longer Used**
 

@@ -18,13 +18,10 @@ baseDir <- "/home/tnagano/projects/def-ccastel/tnagano/TFAMKO_mtDNA-CN"
 # Run the manhattanraw function in code_snippets.R before calling function in this script
 
 # create manhattan plot
-# swap lmerResults and pval/pvalue depending on file
-# lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/Linear_Mixed_Model_lmerResults.csv", sep = ""))) 
 lmerResults <- as.data.frame(read.csv(paste(baseDir, "/results/data/dmp_cont.csv", sep = "")))
 merged <- merge(lmerResults, annotate, by.x="X", by.y="Name")
 
 colnames(merged)[colnames(merged) == "Estimate.mtDNACN"] <- "estimate"
-# colnames(merged)[colnames(merged) == "pvalue"] <- "P.Value" # for linear mixed model
 colnames(merged)[colnames(merged) == "pval"] <- "P.Value" # for dmpfinder using mtDNA-CN as continuous
 colnames(merged)[colnames(merged) == "pos"] <- "start"
 
@@ -62,16 +59,12 @@ manhattan(DMS=ranges, filename="DMRcate", sig=4.61) # there are 2082 ranges, 0.0
 
 ############### plot individual CpG beta values against mtDNA-CN #################
 # using top CpGs from dmpFinder analysis using mtDNA-CN as continuous variable
-dmp_cont <- as.data.frame(read.csv("./results/data/dmp_cont.csv"))
-rownames(dmp_cont) <- dmp_cont$X
-dmp_cont$X <- NULL
 CpGs <- rownames(dmp_cont)[1:20] 
-CpG <- CpGs[1]
+CpG <- CpGs[2] # update index for plot
 CpG_beta <- as.vector(beta[CpG,])
 mtDNACN <- targets$mtDNACN
 df <- data.frame(CpG_beta, mtDNACN)
 Type <- factor(targets$Group)
-# ID <- substr(targets$Decode, 1, nchar(targets$Decode)-2)
 values <- coef(lm(formula = CpG_beta ~ mtDNACN, data = df))
 
 pdf(paste0("./results/plots/CpG_mtDNA-CN/mtDNACN-", CpG, ".pdf"))

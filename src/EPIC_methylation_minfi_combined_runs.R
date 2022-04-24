@@ -24,6 +24,10 @@ baseDirData <- paste(baseDir, "/data/run_combined", sep="")
 # read in csv files into data.table objects with meta information
 targets <- read.metharray.sheet(baseDirData)
 
+# mtDNA-CN added to targets file according to this
+# EPIC <- EPIC[,which(colnames(EPIC) %in% c("KO11.T1", "KO11.T2", "KO5.T1", "KO5.T2", "KO6.T1", "KO6.T2", "NC1.T1", "NC1.T2", "NC2.T1", "NC2.T2", "NC3.T1", "NC3.T2"))]
+# mtDNACN <- as.numeric(c(7.57,7.57, 8.92, 8.92, 7.56, 7.56, 3.23, 3.23, 4.02, 4.02, 4.12, 4.12 ))
+
 # remove chem samples from targets
 targets <- filter(targets, Group != "Chem")
 
@@ -89,9 +93,12 @@ beta['Threshold'] <- abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold
 
 # threshold value used and number of probes remaining before 781118 probes
 # 0.2: 777150; 0.15: 769026; 0.1: 747004 
-# c('cg26094004', 'cg26563141', 'cg08899667', 'cg21051031', 'cg14575356', 'cg23513930')
+# castellani, 2020 paper CpGs c('cg26094004', 'cg26563141', 'cg08899667', 'cg21051031', 'cg14575356', 'cg23513930')
 # cg26094004, cg21051031, cg23513930 removed in both
 # cg26563141 removed when threshold is 0.1 not when 0.15
+# Wang, 2021 paper CpGs
+# c('cg27187555', 'cg21393163', 'cg00988037', 'cg05673882', 'cg04368724', 'cg04018738', 'cg17619755', 'cg02980249', 'cg02597894', 'cg08899667', 'cg22761205', 'cg24420089', 'cg03732020', 'cg09548275', 'cg10713715', 'cg02194129', 'cg27192248', 'cg20507228', 'cg04983687')
+
 beta <- beta[abs(beta$rowMeansRun1 - beta$rowMeansRun2) < threshold, ]
 beta <- beta[, !(names(beta) %in% c("rowMeansRun1", "rowMeansRun2", "Threshold"))]
 
@@ -106,6 +113,12 @@ mVal <- data.matrix(mVal)
 # write.csv(beta, paste(baseDir, "/results/data/beta.csv", sep=""))
 # write.csv(mVal, paste(baseDir, "/results/data/mVal.csv", sep=""))
 
+# subset for want to check for direction of effect
+# b["NCMeans"] <- rowMeans(b[,c("HEK293T_NC-1_2", "HEK293T_NC-2_2", "HEK293T_NC-3_2", "HEK293T_NC-1_1", "HEK293T_NC-2_1", "HEK293T_NC-3_1")])
+# b["KOMeans"] <- rowMeans(b[,c("TFAM_KO_Clone_11_2", "TFAM_KO_Clone_5_2", "TFAM_KO_Clone_6_2", "TFAM_KO_Clone_5_1", "TFAM_KO_Clone_6_1", "TFAM_KO_Clone_11_1")])
+# b["DeltaMeth"] <- b["NCMeans"] - b["KOMeans"]
+# write.csv(b, paste(baseDir, "/results/data/beta_wang.csv", sep=""))
+
 ###################################### find differentially methylated probes using dmpFinder #############################################
 
 # Find differentially methylated probes using mtDNACN as continuous
@@ -116,7 +129,6 @@ write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
 ##### NOTE #####
 # regions are determined by applying gaussian smoothing to the CpG-site test statistics using a given bandwidth set by lambda
 # model the test statistic using chi-square distribution
-# apply p-value adjustment using FDR to find significant CpG-sites
 # group nearby CpG sites using lambda
 # In this case our regions are determined by significant CpG sites within lambda (1000 in this case) base pairs of each other
 # and there needs to be a minimum of 10 CpG sites to be considered a region based on our criteria 
@@ -124,7 +136,7 @@ write.csv(dmp_cont, paste(baseDir, "/results/data/dmp_cont.csv", sep=""))
 # HMFDR: Harmonic mean of the individual CpG FDRs.
 # Fisher: Fisher combined probability transform of the individual CpG FDRs.
 # using the annotation identify the diferentially methylated regions
-# automatically uses pcutoff of 0.01 based on fdr set in cpg.annotate()
+# automatically uses pcutoff based on fdr set in cpg.annotate()
 # use betacutoff of 0.05; removes CpG where beta shift is less than 0.05
 # Get knockout and normal groups and batches as factors
 ##### END NOTE #####
@@ -142,7 +154,7 @@ design <- model.matrix(~Type+Batch) # specify design matrix Type and ID and line
 myAnnotation <- cpg.annotate("array", beta, arraytype = "EPIC", analysis.type = "differential", design = design, coef = 2, what = "Beta", fdr = 1e-7)
 # returns 9110 significant probes using pval < 1e-7
 
-# betacutoff removes ranges with mean methylation between groups is less than or equal to 0.01
+# betacutoff removes ranges with mean methylation between groups is less than or equal to 0.05
 DMRs <- dmrcate(myAnnotation, lambda=1000, C=2, min.cpgs = 10, betacutoff = 0.05) # # fdr is 1 using same cutoffs get 4259 regions; 106722 DMRs if fdr is 1 without cutoffs
 rangesDMR <- extractRanges(DMRs, genome = "hg19")
 
