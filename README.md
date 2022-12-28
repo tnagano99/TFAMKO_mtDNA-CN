@@ -1,6 +1,6 @@
 # TFAMKO_mtDNA-CN
 
-Repository for MHI 4980E Thesis Project as part of the Castellani Lab
+Repository for MHI 4980E Thesis Project as part of [the Castellani Lab](https://castellanilab.com/)
 
 **Topic:** Effect of CRISPR Induced Mitochondrial DNA Varition on the Nuclear Epigenome and Transcriptome
 
